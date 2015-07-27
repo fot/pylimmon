@@ -31,9 +31,9 @@ def opensqlitefile():
 
 def opentdbfile():
     try:
-        tdbs = pickle.load(open(axafauto_url + 'TDB_Archive/TDB/tdb_all.pkl','r'))
+        tdbs = pickle.load(open(axafauto_url + 'TDB_Archive/tdb_all.pkl','r'))
     except:
-        tdbs = pickle.load(open(home + '/TDB_Archive/TDB/tdb_all.pkl','r'))
+        tdbs = pickle.load(open(home + '/AXAFAUTO/TDB_Archive/tdb_all.pkl','r'))
     return tdbs
 
 
