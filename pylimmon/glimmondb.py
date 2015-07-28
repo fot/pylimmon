@@ -979,7 +979,7 @@ def recreate_db(archive_directory):
                     shutil.copy(src, dst)
                 else: raise
                     
-        newdb = createdb(, discard_disabled_sets=False)
+        newdb = createdb(, discard_disabled_sets=True)
         newdb.close()
         temp_filename = pathjoin(DBDIR, 'temporary_db.sqlite3')
         db_filename = pathjoin(DBDIR, 'glimmondb.sqlite3')
