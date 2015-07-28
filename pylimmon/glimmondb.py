@@ -396,7 +396,7 @@ class GLimit(object):
     
     """
     
-    def __init__(self, gdb):
+    def __init__(self, gdb, discard_disabled_sets=True):
         """ Create row-based tables for limits and expected states from an imported G_LIMMON file.
 
         :param gdb: Dictionary containing the definitions defined in one G_LIMMON file.
@@ -412,6 +412,7 @@ class GLimit(object):
         d = self.date
         self.date = '{}-{}-{} {}:{}:{}'.format(d[0], d[1], d[2], d[3], d[4], d[5])
         self.datesec = DateTime(self.date).secs
+        self.discard_disabled_sets = discard_disabled_sets
         
 
     def filter_msids(self):
@@ -503,9 +504,10 @@ class GLimit(object):
                         limitrowdata.append(rowdata)
 
         # Remove disabled MSID rows, this will be taken care of later when these are found to be missing
-        for n, row in enumerate(limitrowdata):
-            if int(row[5]) == 0:
-                _ = limitrowdata.pop(n)
+        if self.discard_disabled_sets:
+            for n, row in enumerate(limitrowdata):
+                if int(row[5]) == 0:
+                    _ = limitrowdata.pop(n)
 
                         
         return limitrowdata
@@ -565,9 +567,10 @@ class GLimit(object):
                         esstaterowdata.append(rowdata)
 
         # Remove disabled MSID rows, this will be marked as disabled later when these are found to be missing
-        for n, row in enumerate(esstaterowdata):
-            if int(row[5]) == 0:
-                _ = esstaterowdata.pop(n)
+        if self.discard_disabled_sets:
+            for n, row in enumerate(esstaterowdata):
+                if int(row[5]) == 0:
+                    _ = esstaterowdata.pop(n)
 
         return esstaterowdata
 
@@ -936,13 +939,13 @@ def merge_modified_msidsets(newdb, olddb, tabletype):
     commit_new_rows(olddb, modrows, tabletype)
 
 
-def createdb(gdb):
+def createdb(gdb, discard_disabled_sets=True):
     """ Create new sqlite3 database based on a G_LIMMON definition.
 
     :param gdb: Dictionary containing a G_LIMMON definition
 
     """
-    g = GLimit(gdb)
+    g = GLimit(gdb, discard_disabled_sets)
     esstaterowdata2 = g.gen_state_row_data()
     limitrowdata2 = g.gen_limit_row_data()
     version = int(unicode(gdb['revision'])[2:])
@@ -976,7 +979,7 @@ def recreate_db(archive_directory):
                     shutil.copy(src, dst)
                 else: raise
                     
-        newdb = createdb(gdb)
+        newdb = createdb(, discard_disabled_sets=False)
         newdb.close()
         temp_filename = pathjoin(DBDIR, 'temporary_db.sqlite3')
         db_filename = pathjoin(DBDIR, 'glimmondb.sqlite3')
