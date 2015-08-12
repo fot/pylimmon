@@ -70,36 +70,49 @@ logging.basicConfig(filename=logfile, level=logging.DEBUG,
 
 ### Class and Function Definitions
 
-def gettdb(tdbs, revision):
+def gettdb(tdbs=None, revision=000, return_dates=False):
     """ Retrieve appropriate telemetry database
 
     :param tdb: tdb dictionary object
     :param revision: associated G_LIMMON dec file revision number
+    :param return_dates: Flag to only return start dates for all databases.
 
     :returns: Dictionary containing the relevant data from the appropriate TDB
 
-    This needs to be updated each time a new TDB version is introduced.
+    This needs to be updated each time a new TDB version is introduced. Due to this level of
+    maintenance, I've merged the actions to either return the tdb or return the start dates
+    for all databases since both the dates and new revision numbers need to be updated.
+
     """
-    revision = int(revision)
-    if float(revision) <= 142:
-        print ('Using P007')
-        tdb = tdbs['p007']
-    elif float(revision) <= 232:
-        print ('Using P009')
-        tdb = tdbs['p009']
-    elif float(revision) <= 246:
-        print ('Using P010')
-        tdb = tdbs['p010']
-    elif float(revision) <= 249:
-        print ('Using P011')
-        tdb = tdbs['p011']
-    elif float(revision) <= 256:
-        print ('Using P012')
-        tdb = tdbs['p012']
-    elif float(revision) <= 999:
-        print ('Using P013')
-        tdb = tdbs['p013']
-    return tdb
+
+    startdates = {'p007':'1999:203:00:00:00', 'p009':'2008:024:21:00:00',
+                  'p010':'2012:089:20:00:00', 'p011':'2014:156:20:00:00',
+                  'p012':'2014:338:21:00:00', 'p013':'2015:162:20:00:00'}
+
+    if return_dates:
+        return startdates
+        
+    else:
+        revision = int(revision)
+        if revision <= 130:
+            print ('Using P007')
+            tdb = tdbs['p007']
+        elif revision <= 228: # p009 starts with 131 and ends with 228 (inclusive)
+            print ('Using P009')
+            tdb = tdbs['p009']
+        elif revision <= 245: # p010 starts with 229 and ends with 246 (inclusive) 
+            print ('Using P010')
+            tdb = tdbs['p010']
+        elif revision <= 249: # p011 starts with 246 and ends with 249 (inclusive)
+            print ('Using P011')
+            tdb = tdbs['p011']
+        elif revision <= 256: # p012 starts with 250 and ends with 256 (inclusive)
+            print ('Using P012')
+            tdb = tdbs['p012']
+        elif revision <= 999: # p013 starts with 257 and ends with ?
+            print ('Using P013')
+            tdb = tdbs['p013']
+        return tdb
 
 
 def readGLIMMON(filename='/home/greta/AXAFSHARE/dec/G_LIMMON.dec'):
