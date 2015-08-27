@@ -15,7 +15,7 @@ import glimmondb as gdb
 axafauto_url = 'http://occweb.cfa.harvard.edu/occweb/FOT/engineering/thermal/AXAFAUTO_RSYNC/'
 
 
-def isnotnan(arg):
+def is_not_nan(arg):
     try:
         np.isnan(arg)
     except:  # Need to use blanket except, NotImplementedError won't catch
@@ -23,7 +23,7 @@ def isnotnan(arg):
     return False
 
 
-def opensqlitefile():
+def open_sqlite_file():
     try:
         db = sqlite3.connect(axafauto_url + 'G_LIMMON_Archive/glimmondb.sqlite3')
     except:
@@ -31,7 +31,7 @@ def opensqlitefile():
     return db
 
 
-def opentdbfile():
+def open_tdb_file():
     try:
         tdbs = pickle.load(open(axafauto_url + 'TDB_Archive/tdb_all.pkl', 'r'))
     except:
@@ -39,7 +39,7 @@ def opentdbfile():
     return tdbs
 
 
-def getTDBLimits(msid, dbver='p013', tdbs=None):
+def get_tdb_limits(msid, dbver='p013', tdbs=None):
     """ Retrieve the TDB limits from a json version of the MS Access database.
 
     :param msid: String containing the mnemonic name, must correspond to a numeric limit set
@@ -68,7 +68,7 @@ def getTDBLimits(msid, dbver='p013', tdbs=None):
         if tdbs:
             return tdbs[dbver.lower()]
         else:
-            tdbs = opentdbfile()
+            tdbs = open_tdb_file()
             return tdbs[dbver.lower()]
 
     msid = msid.lower().strip()
@@ -79,13 +79,13 @@ def getTDBLimits(msid, dbver='p013', tdbs=None):
         limits = assign_sets(tdb[msid]['limit'])
         limits['type'] = 'limit'
 
-        if isnotnan(tdb[msid]['limit_default_set_num']):
+        if is_not_nan(tdb[msid]['limit_default_set_num']):
             limits['default'] = tdb[msid]['limit_default_set_num'] - 1
         else:
             limits['default'] = 0
 
         # Add limit switch info if present
-        if isnotnan(tdb[msid]['limit_switch_msid']):
+        if is_not_nan(tdb[msid]['limit_switch_msid']):
             limits['mlimsw'] = tdb[msid]['limit_switch_msid']
 
         # Fill in switchstate info if present
@@ -105,7 +105,7 @@ def getTDBLimits(msid, dbver='p013', tdbs=None):
     return tdblimits
 
 
-def getSafetyLimits(msid):
+def get_safety_limits(msid):
     """ Update the current database numeric limits
 
     :param msid: String containing the mnemonic name, must correspond to a numeric limit set
@@ -132,22 +132,22 @@ def getSafetyLimits(msid):
 
     # Set the safetylimits dict here. An empty dict is returned if there are no
     # limits specified. This is intended and relied upon later.
-    safetylimits = getTDBLimits(msid)
+    safetylimits = get_tdb_limits(msid)
 
     # Read the GLIMMON data
     try:
-        db = opensqlitefile()
+        db = open_sqlite_file()
         cursor = db.cursor()
-        cursor.execute('''SELECT a.msid, a.setkey, a.default_set, a.warning_low, 
+        cursor.execute("""SELECT a.msid, a.setkey, a.default_set, a.warning_low, 
                           a.caution_low, a.caution_high, a.warning_high FROM limits AS a 
                           WHERE a.setkey = a.default_set AND a.msid = ?
                           AND a.modversion = (SELECT MAX(b.modversion) FROM limits AS b
-                          WHERE a.msid = b.msid and a.setkey = b.setkey)''', [msid, ])
+                          WHERE a.msid = b.msid and a.setkey = b.setkey)""", [msid, ])
         lims = cursor.fetchone()
         glimits = {'warning_low': lims[3], 'caution_low': lims[4], 'caution_high': lims[5],
                    'warning_high': lims[6]}
     except:
-        print('{} not in G_LIMMON Database, message generated in pylimmon.getSafetyLimits()'
+        print('{} not in G_LIMMON Database, message generated in pylimmon.get_safety_limits()'
               .format(msid.upper()))
         glimits = {}
 
@@ -179,10 +179,10 @@ def getSafetyLimits(msid):
     return safetylimits
 
 
-def getMissionSafetyLimits(msid, tdbs=None):
-    '''
+def get_mission_safety_limits(msid, tdbs=None):
+    """
     this assumes that glimmon limits can indicate when a safety limit has been adjusted
-    '''
+    """
     def liminterp(tsum, times, limits):
         # Nans are filled in for cases where a limit isn't established until some point after launch
         # The last date for safety limits and for trending limits should be near the current time and
@@ -190,7 +190,7 @@ def getMissionSafetyLimits(msid, tdbs=None):
         f = interpolate.interp1d(times, limits, kind='zero', bounds_error=False, fill_value=np.nan)
         return list(f(tsum))
 
-    limdict = getlimits(msid)
+    limdict = get_limits(msid)
     lastdate = np.max(limdict['limsets'][0]['times'])
 
     trendinglimits = {'msid': msid, 'warning_low': [], 'caution_low': [], 'caution_high': [],
@@ -204,13 +204,13 @@ def getMissionSafetyLimits(msid, tdbs=None):
     trendinglimits['times'] = limdict['limsets'][0]['times']
 
     if not tdbs:
-        tdbs = opentdbfile()
-    tdbversions = gdb.gettdb(return_dates=True)
+        tdbs = open_tdb_file()
+    tdbversions = gdb.get_tdb(return_dates=True)
     allsafetylimits = {'warning_low': [], 'caution_low': [], 'caution_high': [],
                        'warning_high': [], 'times': []}
     for ver in np.sort(tdbversions.keys()):
         date = tdbversions[ver]
-        safetylimits = getTDBLimits(msid, dbver=ver, tdbs=tdbs)
+        safetylimits = get_tdb_limits(msid, dbver=ver, tdbs=tdbs)
         if safetylimits:
             allsafetylimits['warning_low'].append(safetylimits['warning_low'])
             allsafetylimits['caution_low'].append(safetylimits['caution_low'])
@@ -248,13 +248,13 @@ def getMissionSafetyLimits(msid, tdbs=None):
     return allsafetylimits
 
 
-def getlimits(msid):
+def get_limits(msid):
 
-    db = opensqlitefile()
+    db = open_sqlite_file()
     cursor = db.cursor()
-    cursor.execute('''SELECT a.msid, a.setkey, a.datesec, a.mlmenable, a.default_set, a.switchstate, a.mlimsw, 
+    cursor.execute("""SELECT a.msid, a.setkey, a.datesec, a.mlmenable, a.default_set, a.switchstate, a.mlimsw, 
                       a.caution_high, a.caution_low, a.warning_high, a.warning_low 
-                      FROM limits AS a WHERE a.msid=? ''', [msid.lower(), ])
+                      FROM limits AS a WHERE a.msid=? """, [msid.lower(), ])
     current_limits = cursor.fetchall()
     db.close()
 
@@ -279,7 +279,7 @@ def getlimits(msid):
 
     # Append data for current time + 24 hours to avoid interpolation errors
     #
-    # You count on this being done in getMissionSafetyLimits()
+    # You count on this being done in get_mission_safety_limits()
     for setnum in limdict['limsets'].keys():
         limdict['limsets'][setnum]['times'].append(DateTime().secs + 24 * 3600)
         limdict['limsets'][setnum]['warning_low'].append(
@@ -300,16 +300,16 @@ def getlimits(msid):
     return limdict
 
 
-def getstates(msid):
+def get_states(msid):
     try:
         db.close()
     except:
         pass
 
-    db = opensqlitefile()
+    db = open_sqlite_file()
     cursor = db.cursor()
-    cursor.execute('''SELECT a.msid, a.setkey, a.datesec, a.mlmenable, a.default_set, 
-                          a.switchstate, a.mlimsw, a.expst FROM expected_states AS a WHERE a.msid=? ''',
+    cursor.execute("""SELECT a.msid, a.setkey, a.datesec, a.mlmenable, a.default_set, 
+                          a.switchstate, a.mlimsw, a.expst FROM expected_states AS a WHERE a.msid=? """,
                    [msid.lower(), ])
     current_limits = cursor.fetchall()
 
@@ -347,7 +347,7 @@ def getstates(msid):
 #-------------------------------------------------------------------------------------------------
 
 def check_limit_msid(msid, t1, t2, greta_msid=None):
-    ''' Check to see if temperatures are within expected numeric limits.
+    """ Check to see if temperatures are within expected numeric limits.
 
     :param msid: String containing the mnemonic name
     :param t1: String containing the start time in HOSC format (e.g. 2015:174:08:59:00.000)
@@ -358,7 +358,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         for the following limit types: 'warning_low', 'caution_low', 'caution_high', 'warning_high'
 
     Violations are flagged as True. Time values are returned in the combined_sets_check dictionary.
-    '''
+    """
 
     def combine_limit_checks(all_sets_check):
 
@@ -437,7 +437,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         # If greta_msid is not defined, then they are the same msid
         greta_msid = msid
 
-    limdict = getlimits(greta_msid.lower())
+    limdict = get_limits(greta_msid.lower())
     mlimsw = np.unique([s for setnum in limdict['limsets'].keys()
                         for s in limdict['limsets'][setnum]['mlimsw']])
     mlimsw = list(mlimsw)
@@ -467,7 +467,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
 #-------------------------------------------------------------------------------------------------
 
 def check_state_msid(msid, t1, t2, greta_msid=None):
-    ''' Check to see if states match expected values.
+    """ Check to see if states match expected values.
 
     :param msid: String containing the mnemonic name
     :param t1: String containing the start time in HOSC format (e.g. 2015:174:08:59:00.000)
@@ -477,7 +477,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         particular time violates the expected state (True) or does not (False)
 
     Violations are flagged as True. Time values are returned in the combined_sets_check dictionary.
-    '''
+    """
 
     def combine_state_checks(all_sets_check):
 
@@ -516,11 +516,11 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         return check_state(msid, limdict, setnum, data, mask)
 
     def check_state(msid, limdict, setnum, data, mask):
-        ''' Check telemetry over time span for expected states.
+        """ Check telemetry over time span for expected states.
 
         Since the history of expected state changes needs to be considered, the expected state
         for each telemetry point in time needs to be interpolated.
-        '''
+        """
 
         # Get the history of expected states
         tlim = limdict['limsets'][setnum]['times']
@@ -566,7 +566,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         # If greta_msid is not defined, then they are the same msid
         greta_msid = msid
 
-    limdict = getstates(greta_msid.lower())
+    limdict = get_states(greta_msid.lower())
     mlimsw = np.unique([s for setnum in limdict['limsets'].keys()
                         for s in limdict['limsets'][setnum]['mlimsw']])
 

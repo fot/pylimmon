@@ -1,14 +1,14 @@
 
 # coding: utf-8
 
-## G_LIMMON History Database Development and Proof of Concept
+# G_LIMMON History Database Development and Proof of Concept
 
-### NOTES
-# 
+# NOTES
+#
 # G_LIMMON code such as the following:
-# 
-#     MLOAD COSCS098S     # The following is a cludge, checking if SCS 98 is ACT or SUSP
-#     #MLIMIT SET 0 DEFAULT EXPST INAC
+#
+# MLOAD COSCS098S     # The following is a cludge, checking if SCS 98 is ACT or SUSP
+# MLIMIT SET 0 DEFAULT EXPST INAC
 #     MLMTOL 2
 #     MCALC COSCS098S_ACT  1S IEQN (COSCS098S==0)
 #     MLOAD COSCS098S_ACT
@@ -18,37 +18,37 @@
 #     MLOAD COSCS098S_SUSP
 #     MLIMIT SET 0 DEFAULT PPENG  -2 -1 1 2
 #     MLMTOL 2
-# 
-# may result in the original msid, in this case "COSCS098S", to be ignored if limits or expected states are not specified and do not exist in the tdb. 
+#
+# may result in the original msid, in this case "COSCS098S", to be ignored if limits or expected states are not specified and do not exist in the tdb.
 #
 #
 # Usefule Examples:
 #
-# # Return multiple columns for all rows for one msid, including instances where it may have been deactivated
+# Return multiple columns for all rows for one msid, including instances where it may have been deactivated
 # olddb = sqlite3.connect('glimmondb.sqlite3')
 # cursor = olddb.cursor()
-# cursor.execute("""SELECT msid, setkey, datesec, date, modversion, mlmenable, 
-#                   mlmtol, default_set, mlimsw, warning_low, caution_low, caution_high, warning_high, switchstate 
+# cursor.execute("""SELECT msid, setkey, datesec, date, modversion, mlmenable,
+#                   mlmtol, default_set, mlimsw, warning_low, caution_low, caution_high, warning_high, switchstate
 #                   FROM limits WHERE msid='pline02t'""")
 # cursor.fetchall()
 #
-# # Return only the columns for the current most recent enabled sets for one msid
+# Return only the columns for the current most recent enabled sets for one msid
 # olddb = sqlite3.connect('glimmondb.sqlite3')
 # cursor = olddb.cursor()
-# cursor.execute("""SELECT a.msid, a.setkey, a.date, a.modversion, a.mlmenable, a.mlmtol, a.default_set, a.mlimsw, a.expst, a.switchstate 
-#                   FROM expected_states AS a 
+# cursor.execute("""SELECT a.msid, a.setkey, a.date, a.modversion, a.mlmenable, a.mlmtol, a.default_set, a.mlimsw, a.expst, a.switchstate
+#                   FROM expected_states AS a
 #                   WHERE a.mlmenable=1 AND a.msid='cossrbx' AND a.modversion = (SELECT MAX(b.modversion) FROM expected_states AS b
 #                   WHERE a.msid = b.msid and a.setkey = b.setkey) """)
 # cursor.fetchall()
-
 
 
 import sqlite3
 import cPickle as pickle
 import json
 import logging
-reload(logging) # avoids issue with ipython notebook
-import shutil, errno
+reload(logging)  # avoids issue with ipython notebook
+import shutil
+import errno
 import sys
 from os.path import join as pathjoin
 from os.path import expanduser, abspath, pardir
@@ -68,9 +68,9 @@ logging.basicConfig(filename=logfile, level=logging.DEBUG,
                     format='%(asctime)s %(message)s')
 
 
-### Class and Function Definitions
+# Class and Function Definitions
 
-def gettdb(tdbs=None, revision=000, return_dates=False):
+def get_tdb(tdbs=None, revision=000, return_dates=False):
     """ Retrieve appropriate telemetry database
 
     :param tdb: tdb dictionary object
@@ -85,37 +85,37 @@ def gettdb(tdbs=None, revision=000, return_dates=False):
 
     """
 
-    startdates = {'p007':'1999:203:00:00:00', 'p009':'2008:024:21:00:00',
-                  'p010':'2012:089:20:00:00', 'p011':'2014:156:20:00:00',
-                  'p012':'2014:338:21:00:00', 'p013':'2015:162:20:00:00'}
+    startdates = {'p007': '1999:203:00:00:00', 'p009': '2008:024:21:00:00',
+                  'p010': '2012:089:20:00:00', 'p011': '2014:156:20:00:00',
+                  'p012': '2014:338:21:00:00', 'p013': '2015:162:20:00:00'}
 
     if return_dates:
         return startdates
-        
+
     else:
         revision = int(revision)
         if revision <= 130:
             print ('Using P007')
             tdb = tdbs['p007']
-        elif revision <= 228: # p009 starts with 131 and ends with 228 (inclusive)
+        elif revision <= 228:  # p009 starts with 131 and ends with 228 (inclusive)
             print ('Using P009')
             tdb = tdbs['p009']
-        elif revision <= 245: # p010 starts with 229 and ends with 246 (inclusive) 
+        elif revision <= 245:  # p010 starts with 229 and ends with 246 (inclusive)
             print ('Using P010')
             tdb = tdbs['p010']
-        elif revision <= 249: # p011 starts with 246 and ends with 249 (inclusive)
+        elif revision <= 249:  # p011 starts with 246 and ends with 249 (inclusive)
             print ('Using P011')
             tdb = tdbs['p011']
-        elif revision <= 256: # p012 starts with 250 and ends with 256 (inclusive)
+        elif revision <= 256:  # p012 starts with 250 and ends with 256 (inclusive)
             print ('Using P012')
             tdb = tdbs['p012']
-        elif revision <= 999: # p013 starts with 257 and ends with ?
+        elif revision <= 999:  # p013 starts with 257 and ends with ?
             print ('Using P013')
             tdb = tdbs['p013']
         return tdb
 
 
-def readGLIMMON(filename='/home/greta/AXAFSHARE/dec/G_LIMMON.dec'):
+def read_glimmon(filename='/home/greta/AXAFSHARE/dec/G_LIMMON.dec'):
     """ Import G_LIMMON.dec file
 
     :param filename: Name/Location of G_LIMMON file to import
@@ -154,26 +154,26 @@ def readGLIMMON(filename='/home/greta/AXAFSHARE/dec/G_LIMMON.dec'):
 
             if (words[0] == 'MLOAD') & (len(words) == 2):
                 name = words[1]
-                glimmon.update({name:{}})
+                glimmon.update({name: {}})
 
             elif words[0] == 'MLIMIT':
                 setnum = int(words[2])
-                glimmon[name].update({setnum:{}})
+                glimmon[name].update({setnum: {}})
                 if glimmon[name].has_key('setkeys'):
                     glimmon[name]['setkeys'].append(setnum)
                 else:
-                    glimmon[name]['setkeys'] = [setnum,]
+                    glimmon[name]['setkeys'] = [setnum, ]
 
                 if 'DEFAULT' in words:
-                    glimmon[name].update({'default':setnum})
+                    glimmon[name].update({'default': setnum})
 
                 if 'SWITCHSTATE' in words:
                     ind = words.index('SWITCHSTATE')
-                    glimmon[name][setnum].update({'switchstate':words[ind+1]})
+                    glimmon[name][setnum].update({'switchstate': words[ind + 1]})
 
                 if 'PPENG' in words:
                     ind = words.index('PPENG')
-                    glimmon[name].update({'type':'limit'})
+                    glimmon[name].update({'type': 'limit'})
                     glimmon[name][setnum].update({'warning_low':
                                                   float(words[ind + 1])})
                     glimmon[name][setnum].update({'caution_low':
@@ -185,51 +185,51 @@ def readGLIMMON(filename='/home/greta/AXAFSHARE/dec/G_LIMMON.dec'):
 
                 if 'EXPST' in words:
                     ind = words.index('EXPST')
-                    glimmon[name].update({'type':'expected_state'})
-                    glimmon[name][setnum].update({'expst':words[ind + 1]})
+                    glimmon[name].update({'type': 'expected_state'})
+                    glimmon[name][setnum].update({'expst': words[ind + 1]})
 
             elif words[0] == 'MLMTOL':
-                glimmon[name].update({'mlmtol':int(words[1])})
+                glimmon[name].update({'mlmtol': int(words[1])})
 
             elif words[0] == 'MLIMSW':
-                glimmon[name].update({'mlimsw':words[1]})
+                glimmon[name].update({'mlimsw': words[1]})
 
             elif words[0] == 'MLMENABLE':
-                glimmon[name].update({'mlmenable':int(words[1])})
+                glimmon[name].update({'mlmenable': int(words[1])})
 
             elif words[0] == 'MLMDEFTOL':
-                glimmon.update({'mlmdeftol':int(words[1])})
+                glimmon.update({'mlmdeftol': int(words[1])})
 
             elif words[0] == 'MLMTHROW':
-                glimmon.update({'mlmthrow':int(words[1])})
+                glimmon.update({'mlmthrow': int(words[1])})
 
             elif len(re.findall(revision_pattern, line)) > 0:
                 version = re.findall(revision_pattern, line)
-                glimmon.update({'revision':version[0].strip()})
-                glimmon.update({'version':version[0].strip()})
+                glimmon.update({'revision': version[0].strip()})
+                glimmon.update({'version': version[0].strip()})
 
             elif len(re.findall('^XMSID TEXTONLY ROWCOL.*COLOR.*Version', line)) > 0:
                 version = re.findall(version_pattern, line)
-                glimmon.update({'version':version[0].strip()})
+                glimmon.update({'version': version[0].strip()})
 
             elif len(re.findall('^XMSID TEXTONLY ROWCOL.*COLOR.*Database', line)) > 0:
                 database = re.findall(database_pattern, line)
-                glimmon.update({'database':database[0].strip()})
+                glimmon.update({'database': database[0].strip()})
 
         # elif len(re.findall('^#\$Revision', comment_line)) > 0:
         elif len(re.findall(revision_pattern, comment_line)) > 0:
             revision = re.findall(revision_pattern, comment_line)
-            glimmon.update({'revision':revision[0].strip()})
+            glimmon.update({'revision': revision[0].strip()})
 
         # elif len(re.findall('^#\$Date', comment_line)) > 0:
         elif len(re.findall(date_pattern, comment_line)) > 0:
             date = re.findall(date_pattern, comment_line)
-            glimmon.update({'date':date[0]})
+            glimmon.update({'date': date[0]})
 
     return glimmon
 
 
-def assignsets(dbsets):
+def assign_sets(dbsets):
     """ Copy over only the limit/expst sets, other stuff is not copied.
 
     :param dbsets: Datastructure stored in the TDB as tdb[msid]['limit']
@@ -238,15 +238,15 @@ def assignsets(dbsets):
 
     This also adds a list of set numbers using zero-based numbering.
     """
-    limits = {'setkeys':[]}
+    limits = {'setkeys': []}
     for setnum in dbsets.keys():
         setnumint = int(setnum) - 1
-        limits.update({setnumint:dbsets[setnum]})
+        limits.update({setnumint: dbsets[setnum]})
         limits['setkeys'].append(setnumint)
     return limits
 
 
-def isnotnan(arg):
+def is_not_nan(arg):
     """ Test to see if a variable is not a nan type.
 
     :param arg: Variable to be tested
@@ -264,7 +264,7 @@ def isnotnan(arg):
     return False
 
 
-def filllimits(tdb, g, msid):
+def fill_limits(tdb, g, msid):
     """ Fill in tdb limit data where none are explicitly specified in G_LIMMON.
 
     :param tdb: TDB datastructure (corresponding to p012, p013, etc.)
@@ -274,11 +274,11 @@ def filllimits(tdb, g, msid):
     There is no return value, the "g" datastructure is updated in place. 
     """
 
-    limits = assignsets(tdb[msid]['limit'])
+    limits = assign_sets(tdb[msid]['limit'])
 
     limits['type'] = 'limit'
 
-    if isnotnan(tdb[msid]['limit_default_set_num']):
+    if is_not_nan(tdb[msid]['limit_default_set_num']):
         limits['default'] = tdb[msid]['limit_default_set_num'] - 1
     else:
         limits['default'] = 0
@@ -286,11 +286,11 @@ def filllimits(tdb, g, msid):
     # Alternate limit/es sets are automatically added to GLIMMON by GRETA, GLIMMON only adds MSIDs
     # to the current set of MSIDs and *prepends* limit/es sets that will take precedence
     # over sets defined in the database.
-    if isnotnan(tdb[msid]['limit_switch_msid']):
+    if is_not_nan(tdb[msid]['limit_switch_msid']):
         limits['mlimsw'] = tdb[msid]['limit_switch_msid']
 
         if 'lim_switch' in tdb[msid].keys():
-            for setkey in limits['setkeys']: # assuming there are limit switch states for each set 
+            for setkey in limits['setkeys']:  # assuming there are limit switch states for each set
                 charkey = unicode(setkey + 1)
                 try:
                     limits[setkey]['switchstate'] = tdb[msid]['lim_switch'][charkey]['state_code']
@@ -301,9 +301,6 @@ def filllimits(tdb, g, msid):
     #     if 'state_code' in limits[setkey].keys():
     #         limits[setkey]['switchstate'] = limits[setkey]['state_code']
     #         _ = limits[setkey].pop('state_code')
-
-
-
 
     # Fill in the default tolerance specified in the GLIMMON file
     if 'mlmtol' not in g[msid.upper()].keys():
@@ -321,9 +318,7 @@ def filllimits(tdb, g, msid):
     g[msid.upper()].update(limits)
 
 
-
-
-def fillstates(tdb, g, msid):
+def fill_states(tdb, g, msid):
     """ Fill in tdb expected state data where none are explicitly specified in G_LIMMON.
 
     :param tdb: TDB datastructure (corresponding to p012, p013, etc.)
@@ -333,12 +328,12 @@ def fillstates(tdb, g, msid):
     There is no return value, the "g" datastructure is updated in place. 
     """
 
-    states = assignsets(tdb[msid]['exp_state'])
+    states = assign_sets(tdb[msid]['exp_state'])
 
     states['type'] = 'expected_state'
 
     # Specify a default set.
-    if isnotnan(tdb[msid]['es_default_set_num']):
+    if is_not_nan(tdb[msid]['es_default_set_num']):
         states['default'] = tdb[msid]['es_default_set_num'] - 1
     else:
         states['default'] = 0
@@ -346,11 +341,11 @@ def fillstates(tdb, g, msid):
     # Alternate limit/es sets are automatically added to GLIMMON by GRETA, GLIMMON only adds MSIDs
     # to the current set of MSIDs and *prepends* limit/es sets that will take precedence
     # over sets defined in the database.
-    if isnotnan(tdb[msid]['es_switch_msid']):
+    if is_not_nan(tdb[msid]['es_switch_msid']):
         states['mlimsw'] = tdb[msid]['es_switch_msid']
 
         if 'es_switch' in tdb[msid].keys():
-            for setkey in states['setkeys']: # assuming there are limit switch states for each set 
+            for setkey in states['setkeys']:  # assuming there are limit switch states for each set
                 charkey = unicode(setkey + 1)
                 try:
                     states[setkey]['switchstate'] = tdb[msid]['es_switch'][charkey]['state_code']
@@ -365,7 +360,7 @@ def fillstates(tdb, g, msid):
         if 'expected_state' in states[setkey]:
             # This could be listed as expst or expected_state, not sure why, make sure it is expst
             states[setkey]['expst'] = states[setkey]['expected_state']
-            _ = states[setkey].pop('expected_state')            
+            _ = states[setkey].pop('expected_state')
 
     # Fill in the default tolerance specified in the GLIMMON file
     if 'mlmtol' not in g[msid.upper()].keys():
@@ -383,7 +378,7 @@ def fillstates(tdb, g, msid):
     g[msid.upper()].update(states)
 
 
-def updatemsid(msid, tdb, g):
+def update_msid(msid, tdb, g):
     """ Call the appropriate function to fill in limits or expected states.
 
     :param msid: Current MSID
@@ -392,23 +387,24 @@ def updatemsid(msid, tdb, g):
     """
     if msid in tdb.keys():
         if tdb[msid].has_key('limit'):
-            filllimits(tdb, g, msid)
+            fill_limits(tdb, g, msid)
         elif tdb[msid].has_key('exp_state'):
-            fillstates(tdb, g, msid)
+            fill_states(tdb, g, msid)
 
 
 class GLimit(object):
+
     """ G_LIMMON instance for outputting es/limit data in row format.
-    
+
     This is used to convert the dictionary of es/limit data for each msid and set into 
     line entries, where each line contains all the required information for each msid and set
     pair. This resulting format is how the sqlite3 database tables for limits and expected
     states (separate tables) are structured.
 
     Remember that an MSID/Set pair defines a unique condition, for one point in time. 
-    
+
     """
-    
+
     def __init__(self, gdb, discard_disabled_sets=True):
         """ Create row-based tables for limits and expected states from an imported G_LIMMON file.
 
@@ -418,15 +414,15 @@ class GLimit(object):
         expected states are not explicitly defined.
         """
         self.gdb = gdb
-        self.rootfields = ['mlmenable', 'mlmtol','default','mlimsw']
-        self.limitsetfields = ['caution_high','caution_low', 'warning_high','warning_low','switchstate']
-        self.statesetfields = ['expst','switchstate']
+        self.rootfields = ['mlmenable', 'mlmtol', 'default', 'mlimsw']
+        self.limitsetfields = [
+            'caution_high', 'caution_low', 'warning_high', 'warning_low', 'switchstate']
+        self.statesetfields = ['expst', 'switchstate']
         self.msids = self.filter_msids()
         d = self.date
         self.date = '{}-{}-{} {}:{}:{}'.format(d[0], d[1], d[2], d[3], d[4], d[5])
         self.datesec = DateTime(self.date).secs
         self.discard_disabled_sets = discard_disabled_sets
-        
 
     def filter_msids(self):
         """ Assign an "msids" attribute to this class.
@@ -439,13 +435,12 @@ class GLimit(object):
         for key in removekeys:
             self.__setattr__(key, self.gdb[key])
             msids.remove(key)
-        
+
         # MSIDs that have no type will not have any defined limits/expected states (e.g. coscs098s)
         for msid in msids:
             if 'type' not in self.gdb[msid].keys():
-                msids.remove(msid)        
+                msids.remove(msid)
         return msids
-
 
     def gen_limit_row_data(self):
         """ Return a G_LIMMON limit definitions in row format.
@@ -455,7 +450,7 @@ class GLimit(object):
         """
         limitrowdata = []
         for msid in self.msids:
-        #     print(msid)
+            #     print(msid)
             mdata = self.gdb[msid]
             if mdata['type'].lower() == 'limit':
                 for setkey in mdata['setkeys']:
@@ -465,9 +460,10 @@ class GLimit(object):
                         rowdata.append(setkey)
                         rowdata.append(self.datesec)
                         rowdata.append(self.date)
-                        rowdata.append(int(self.revision[2:])) # only want values after decimal point
+                        # only want values after decimal point
+                        rowdata.append(int(self.revision[2:]))
                         # rowdata.append(1) # Active
-                        
+
                         if 'mlmenable' in mdata.keys():
                             rowdata.append(mdata['mlmenable'])
                         else:
@@ -488,7 +484,6 @@ class GLimit(object):
                         else:
                             rowdata.append('none')
 
-                                
                         if 'caution_high' in mdata[setkey].keys():
                             rowdata.append(mdata[setkey]['caution_high'])
                         else:
@@ -513,16 +508,16 @@ class GLimit(object):
                             rowdata.append(mdata[setkey]['switchstate'].lower())
                         else:
                             rowdata.append('none')
-                        
+
                         limitrowdata.append(rowdata)
 
-        # Remove disabled MSID rows, this will be taken care of later when these are found to be missing
+        # Remove disabled MSID rows, this will be taken care of later when these
+        # are found to be missing
         if self.discard_disabled_sets:
             for n, row in enumerate(limitrowdata):
                 if int(row[5]) == 0:
                     _ = limitrowdata.pop(n)
 
-                        
         return limitrowdata
 
     def gen_state_row_data(self):
@@ -543,9 +538,10 @@ class GLimit(object):
                         rowdata.append(setkey)
                         rowdata.append(self.datesec)
                         rowdata.append(self.date)
-                        rowdata.append(int(self.revision[2:])) # only want values after decimal point
+                        # only want values after decimal point
+                        rowdata.append(int(self.revision[2:]))
                         # rowdata.append(1) # Active
-                        
+
                         if 'mlmenable' in mdata.keys():
                             rowdata.append(mdata['mlmenable'])
                         else:
@@ -566,7 +562,6 @@ class GLimit(object):
                         else:
                             rowdata.append('none')
 
-
                         if 'expst' in mdata[setkey].keys():
                             rowdata.append(mdata[setkey]['expst'].lower())
                         else:
@@ -579,7 +574,8 @@ class GLimit(object):
 
                         esstaterowdata.append(rowdata)
 
-        # Remove disabled MSID rows, this will be marked as disabled later when these are found to be missing
+        # Remove disabled MSID rows, this will be marked as disabled later when
+        # these are found to be missing
         if self.discard_disabled_sets:
             for n, row in enumerate(esstaterowdata):
                 if int(row[5]) == 0:
@@ -587,33 +583,33 @@ class GLimit(object):
 
         return esstaterowdata
 
-    
     def write_limit_row_data(self, limitrowdata):
         """ Write limit table to file.
 
         This is used for debugging purposes.
         """
-        fid = open('limitrowdata_{}.txt'.format(self.revision[2:]),'w')
+        fid = open('limitrowdata_{}.txt'.format(self.revision[2:]), 'w')
         fid.writelines([','.join([str(s) for s in row]) + '\n' for row in limitrowdata])
         fid.close()
 
-        
     def write_state_row_data(self, esstaterowdata):
         """ Write expected state table to file.
 
         This is used for debugging purposes.
         """
-        fid = open('esstaterowdata_{}.txt'.format(self.revision[2:]),'w')
+        fid = open('esstaterowdata_{}.txt'.format(self.revision[2:]), 'w')
         fid.writelines([','.join([str(s) for s in row]) + '\n' for row in esstaterowdata])
         fid.close()
 
 
 class NewLimitDB(object):
+
     """ Create a G_LIMMON based sqlite3 database.
-    
+
     This writes the G_LIMMON data formatted using the GLimit class to an sqlite3 database file.
-    
+
     """
+
     def __init__(self, limitrowdata, esstaterowdata, version, date, datesec):
         """ Create Sqlite3 database for limits, expected states, and version information.
 
@@ -641,7 +637,7 @@ class NewLimitDB(object):
 
     def __exit__(self, type, value, traceback):
         self.db.close()
-        
+
     def create_limit_table(self):
         cursor = self.db.cursor()
         cursor.execute("""DROP TABLE IF EXISTS limits""")
@@ -666,36 +662,38 @@ class NewLimitDB(object):
                               default_set, mlimsw, caution_high, caution_low, warning_high, warning_low, 
                               switchstate) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", row)
         self.db.commit()
-        
+
     def fill_esstate_data(self, esstaterowdata):
         cursor = self.db.cursor()
         for row in esstaterowdata:
             cursor.execute("""INSERT INTO expected_states(msid, setkey, datesec, date, modversion, mlmenable, 
                               mlmtol, default_set, mlimsw, expst, switchstate) VALUES(?,?,?,?,?,?,?,?,?,?,?)""", row)
-        self.db.commit()            
-            
+        self.db.commit()
+
     def create_version_table(self):
         cursor = self.db.cursor()
         cursor.execute("""DROP TABLE IF EXISTS versions""")
-        cursor.execute("""CREATE TABLE versions(id INTEGER PRIMARY KEY, version INTEGER UNIQUE, datesec REAL UNIQUE, date TEXT UNIQUE)""")
+        cursor.execute(
+            """CREATE TABLE versions(id INTEGER PRIMARY KEY, version INTEGER UNIQUE, datesec REAL UNIQUE, date TEXT UNIQUE)""")
         self.db.commit()
 
     def fill_version_data(self, version, date, datesec):
         cursor = self.db.cursor()
-        cursor.execute("""INSERT INTO versions(version, datesec, date) VALUES(?,?,?)""", (version, datesec, date))
-        self.db.commit()    
+        cursor.execute(
+            """INSERT INTO versions(version, datesec, date) VALUES(?,?,?)""", (version, datesec, date))
+        self.db.commit()
 
 
 def raise_tabletype_error(tabletype):
     """ Raise error if table name does not match either 'limit' or 'expected_state'.
-    
+
     :param tabletype: Name of table (i.e. type of table) that was attempted
     :raises ValueError: when wrong table name/type was attempted 
     """
     s1 = "Argument 'tabletype' is entered as {}".format(tabletype)
     s2 = ", should be either 'limit' or 'expected_state'"
-    raise ValueError ("{}{}".format(s1, s2))
-    
+    raise ValueError("{}{}".format(s1, s2))
+
 
 def query_all_cols_one_row_to_copy(db, msidset, tabletype):
     """ Return all columns for most recently defined limit or expected state data.
@@ -720,7 +718,6 @@ def query_all_cols_one_row_to_copy(db, msidset, tabletype):
     else:
         raise_tabletype_error(tabletype)
     return cursor.fetchone()
-
 
 
 def query_most_recent_msids_sets(db, tabletype):
@@ -819,7 +816,7 @@ def commit_new_rows(db, rows, tabletype):
                                  default_set, mlimsw, caution_high, caution_low, warning_high, warning_low, switchstate) 
                                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", row)
             logging.info('    Added new row:{}.'.format(row))
-            
+
     elif tabletype.lower() == 'expected_state':
         for row in rows:
             oldcursor.execute("""INSERT INTO expected_states(msid, setkey, datesec, date, modversion, mlmenable, 
@@ -827,7 +824,7 @@ def commit_new_rows(db, rows, tabletype):
             logging.info('    Added new row:{}.'.format(row))
     else:
         raise_tabletype_error(tabletype)
-        
+
     db.commit()
 
 
@@ -846,19 +843,19 @@ def commit_new_version_row(olddb, newdb):
     version, datesec, date = data.fetchone()
 
     oldcursor = olddb.cursor()
-    oldcursor.execute("""INSERT INTO versions(version, datesec, date) VALUES(?,?,?)""", (version, datesec, date))   
+    oldcursor.execute(
+        """INSERT INTO versions(version, datesec, date) VALUES(?,?,?)""", (version, datesec, date))
     olddb.commit()
-
 
 
 def add_merge_logging_text(tabletype, functiontype, newlen, oldlen, addlen):
     """ Add Merge Operation Logging.
-    
+
     :param tabletype: either 'limit' or 'expected_state'
     :param functiontype: either 'added', 'deactivated', or 'modified'
-    
+
     """
-    
+
     formatted_tabletype = ' '.join([s.capitalize() for s in tabletype.split('_')])
     formatted_functiontype = functiontype.capitalize()
     logging.info('========== Comparing New and Current {}s Table For {} MSID Sets =========='
@@ -882,7 +879,8 @@ def merge_added_msidsets(newdb, olddb, tabletype):
     all_new_rows = query_most_recent_msids_sets(newdb, tabletype)
     all_old_rows = query_most_recent_msids_sets(olddb, tabletype)
 
-    not_in_oldrows = set(all_new_rows).difference(set(all_old_rows)) # what is in newrows but not in oldrows
+    # what is in newrows but not in oldrows
+    not_in_oldrows = set(all_new_rows).difference(set(all_old_rows))
     addrows = []
     for msidset in not_in_oldrows:
         addrow = query_all_cols_one_row_to_copy(newdb, msidset, tabletype)
@@ -891,7 +889,7 @@ def merge_added_msidsets(newdb, olddb, tabletype):
     add_merge_logging_text(tabletype, 'added', len(all_new_rows), len(all_old_rows), len(addrows))
     commit_new_rows(olddb, addrows, tabletype)
 
-    
+
 def merge_deleted_msidsets(newdb, olddb, tabletype):
     """ Find newly deleted/disabled msids and add new rows indicating the change in status to db.
 
@@ -907,15 +905,15 @@ def merge_deleted_msidsets(newdb, olddb, tabletype):
     data = newcursor.execute("""SELECT version, datesec, date FROM versions""")
     version, datesec, date = data.fetchone()
 
-
     all_new_rows = query_most_recent_msids_sets(newdb, tabletype)
     all_old_rows = query_most_recent_msids_sets(olddb, tabletype)
     all_old_disabled_rows = query_most_recent_disabled_msids_sets(olddb, tabletype)
-    
+
     disabled_not_in_newrows = set(all_old_disabled_rows).difference(set(all_new_rows))
     all_new_rows.extend(list(disabled_not_in_newrows))
 
-    not_in_newrows = set(all_old_rows).difference(set(all_new_rows)) # what is in oldrows but not in newrows
+    # what is in oldrows but not in newrows
+    not_in_newrows = set(all_old_rows).difference(set(all_new_rows))
     deactivaterows = []
     for msidset in not_in_newrows:
         deactrow = query_all_cols_one_row_to_copy(olddb, msidset, tabletype)
@@ -926,10 +924,11 @@ def merge_deleted_msidsets(newdb, olddb, tabletype):
         deactrow[5] = 0
         deactivaterows.append(tuple(deactrow))
 
-    add_merge_logging_text(tabletype, 'deactivated', len(all_new_rows), len(all_old_rows), len(deactivaterows))
+    add_merge_logging_text(tabletype, 'deactivated', len(
+        all_new_rows), len(all_old_rows), len(deactivaterows))
     commit_new_rows(olddb, deactivaterows, tabletype)
 
-    
+
 def merge_modified_msidsets(newdb, olddb, tabletype):
     """ Find newly modified msids and add new rows indicating the change in status/info to db.
 
@@ -941,18 +940,20 @@ def merge_modified_msidsets(newdb, olddb, tabletype):
     all_new_rows = query_most_recent_changeable_data(newdb, tabletype)
     all_old_rows = query_most_recent_changeable_data(olddb, tabletype)
 
-    modified_rows = set(all_new_rows).difference(set(all_old_rows)) # what is in newrows but not in oldrows
+    # what is in newrows but not in oldrows
+    modified_rows = set(all_new_rows).difference(set(all_old_rows))
     modrows = []
     newcursor = newdb.cursor()
     for msidset in modified_rows:
         modrow = query_all_cols_one_row_to_copy(newdb, msidset[:2], tabletype)
         modrows.append(modrow)
 
-    add_merge_logging_text(tabletype, 'modified', len(all_new_rows), len(all_old_rows), len(modrows))
+    add_merge_logging_text(
+        tabletype, 'modified', len(all_new_rows), len(all_old_rows), len(modrows))
     commit_new_rows(olddb, modrows, tabletype)
 
 
-def createdb(gdb, discard_disabled_sets=True):
+def create_db(gdb, discard_disabled_sets=True):
     """ Create new sqlite3 database based on a G_LIMMON definition.
 
     :param gdb: Dictionary containing a G_LIMMON definition
@@ -980,31 +981,31 @@ def recreate_db(archive_directory):
         """ Write Initial DB to Disk
         """
 
-        def copyanything(src, dst):
+        def copy_anything(src, dst):
             """ Copied from Stackoverflow
-            
+
             http://stackoverflow.com/questions/1994488/copy-file-or-directory-in-python
             """
             try:
                 shutil.copytree(src, dst)
-            except OSError as exc: # python >2.5
+            except OSError as exc:  # python >2.5
                 if exc.errno == errno.ENOTDIR:
                     shutil.copy(src, dst)
-                else: raise
-                    
-        newdb = createdb(gdb, discard_disabled_sets=True)
+                else:
+                    raise
+
+        newdb = create_db(gdb, discard_disabled_sets=True)
         newdb.close()
         temp_filename = pathjoin(DBDIR, 'temporary_db.sqlite3')
         db_filename = pathjoin(DBDIR, 'glimmondb.sqlite3')
-        copyanything(temp_filename, db_filename)
+        copy_anything(temp_filename, db_filename)
 
-        logging.info('========================= glimmondb.sqlite3 Initialized =========================\n')
-
+        logging.info(
+            '========================= glimmondb.sqlite3 Initialized =========================\n')
 
     def get_glimmon_arch_filenames():
         glimmon_files = glob.glob(pathjoin(archive_directory, "G_LIMMON_2.*.dec"))
         return glimmon_files
-
 
     def get_glimmon_versions(glimmon_files):
 
@@ -1014,19 +1015,18 @@ def recreate_db(archive_directory):
             rev = re.findall(filename_rev_pattern, filename)[0]
             versions.append([int(n) for n in rev])
 
-        return sorted(versions, key=itemgetter(0,1))
-
+        return sorted(versions, key=itemgetter(0, 1))
 
     filename = pathjoin(archive_directory, "G_LIMMON_P007A.dec")
-    g = readGLIMMON(filename)
+    g = read_glimmon(filename)
     g['revision'] = '2.0'
 
     tdbfile = pathjoin(TDBDIR, 'tdb_all.pkl')
-    tdbs = pickle.load(open(tdbfile,'r'))
-    tdb = gettdb(tdbs, g['revision'][2:])
+    tdbs = pickle.load(open(tdbfile, 'r'))
+    tdb = get_tdb(tdbs, g['revision'][2:])
 
     for msid in g.keys():
-        updatemsid(msid.lower(), tdb, g)
+        update_msid(msid.lower(), tdb, g)
 
     write_initial_db(g)
 
@@ -1035,7 +1035,7 @@ def recreate_db(archive_directory):
 
     for rev in revisions:
         print("Importing revision {}-{}".format(rev[0], rev[1]))
-        gfile =  pathjoin(archive_directory, "G_LIMMON_{}.{}.dec".format(rev[0], rev[1]))
+        gfile = pathjoin(archive_directory, "G_LIMMON_{}.{}.dec".format(rev[0], rev[1]))
         merge_new_glimmon_to_db(gfile, tdbs)
 
 
@@ -1047,14 +1047,14 @@ def merge_new_glimmon_to_db(filename, tdbs):
 
     """
 
-    g = readGLIMMON(filename)
+    g = read_glimmon(filename)
 
-    tdb = gettdb(tdbs, g['revision'][2:])
+    tdb = get_tdb(tdbs, g['revision'][2:])
     for msid in g.keys():
-        updatemsid(msid.lower(), tdb, g)
+        update_msid(msid.lower(), tdb, g)
 
     newver = g['revision'][2:]
-    
+
     glimmondb_filename = pathjoin(DBDIR, 'glimmondb.sqlite3')
     olddb = sqlite3.connect(glimmondb_filename)
     oldcursor = olddb.cursor()
@@ -1065,7 +1065,7 @@ def merge_new_glimmon_to_db(filename, tdbs):
     logging.info('')
     logging.info('                        ========== {} =========='.format(textinsert))
 
-    newdb = createdb(g)
+    newdb = create_db(g)
 
     # Limit Table Comparison/Merge
     merge_added_msidsets(newdb, olddb, 'limit')
@@ -1087,6 +1087,3 @@ def merge_new_glimmon_to_db(filename, tdbs):
         shutil.rmtree(temp_filename)
     except OSError:
         pass
-
-
-
