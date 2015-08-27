@@ -187,10 +187,14 @@ def getMissionSafetyLimits(msid, tdbs=None):
     this assumes that glimmon limits can indicate when a safety limit has been adjusted
     '''
     def liminterp(tsum, times, limits):
+        # Nans are filled in for cases where a limit isn't established until some point after launch
+        # The last date for safety limits and for trending limits should be near the current time and 
+        #  be identical so that one doesn't dominate when it shouldn't.
         f = interpolate.interp1d(times, limits, kind='zero', bounds_error=False, fill_value=np.nan)
         return list(f(tsum))
 
     limdict = getlimits(msid)
+    lastdate = np.max(limdict['limsets'][0]['times'])
 
     trendinglimits = {'msid':msid, 'warning_low':[], 'caution_low':[], 'caution_high':[], 
                       'warning_high':[], 'times':[]}
@@ -205,9 +209,10 @@ def getMissionSafetyLimits(msid, tdbs=None):
     if not tdbs:
         tdbs = opentdbfile()
     tdbversions = gdb.gettdb(return_dates=True)
-    allsafetylimits = {'msid':msid, 'warning_low':[], 'caution_low':[], 'caution_high':[], 
+    allsafetylimits = {'warning_low':[], 'caution_low':[], 'caution_high':[], 
                       'warning_high':[], 'times':[]}
-    for ver, date in tdbversions.items():
+    for ver in np.sort(tdbversions.keys()):
+        date = tdbversions[ver]
         safetylimits = getTDBLimits(msid, dbver=ver, tdbs=tdbs)
         if safetylimits:
             allsafetylimits['warning_low'].append(safetylimits['warning_low'])
@@ -219,17 +224,27 @@ def getMissionSafetyLimits(msid, tdbs=None):
     if len(allsafetylimits['warning_low']) == 0:
         return None
 
+    # Repeat the last limit to prevent NaNs from being entered for safety limits when interpolating
+    for key in allsafetylimits.keys():
+        allsafetylimits[key].append(allsafetylimits[key][-1])
+    allsafetylimits['times'][-1] = lastdate
+
     tsum = np.sort(np.unique(np.concatenate((trendinglimits['times'],allsafetylimits['times']))))
     for kind in ['warning_low', 'caution_low', 'caution_high', 'warning_high']:
         trendinglimits[kind] = liminterp(tsum, trendinglimits['times'], trendinglimits[kind])
         allsafetylimits[kind] = liminterp(tsum, allsafetylimits['times'], allsafetylimits[kind])
-        allsafetylimits[kind] = np.nanmax((trendinglimits[kind], allsafetylimits[kind]), axis=0)
-    allsafetylimits['times'] = tsum
+        if 'high' in kind:
+            allsafetylimits[kind] = [np.nanmax((t,a)) for t, a in zip(trendinglimits[kind], allsafetylimits[kind])]
+            # allsafetylimits[kind] = list(np.nanmax((trendinglimits[kind], allsafetylimits[kind]), axis=0))
+        else:
+            allsafetylimits[kind] = [np.nanmin((t,a)) for t, a in zip(trendinglimits[kind], allsafetylimits[kind])]
+
+    allsafetylimits['times'] = list(tsum)
 
     # Repeat the last limit for the current date to make plotting easier
-    for key in allsafetylimits.keys():
-        allsafetylimits[key].append(allsafetylimits[key][-1])
-    allsafetylimits['times'][-1] = DateTime().secs
+    # for key in allsafetylimits.keys():
+    #     allsafetylimits[key].append(allsafetylimits[key][-1])
+    # allsafetylimits['times'][-1] = DateTime().secs
 
     return allsafetylimits
 
@@ -266,6 +281,8 @@ def getlimits(msid):
         limdict['limsets'][setnum]['default_set'].append(row[4])
 
     # Append data for current time + 24 hours to avoid interpolation errors
+    #
+    # You count on this being done in getMissionSafetyLimits()
     for setnum in limdict['limsets'].keys():
         limdict['limsets'][setnum]['times'].append(DateTime().secs + 24*3600)
         limdict['limsets'][setnum]['warning_low'].append(limdict['limsets'][setnum]['warning_low'][-1])
