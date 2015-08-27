@@ -16,11 +16,11 @@ axafauto_url = 'http://occweb.cfa.harvard.edu/occweb/FOT/engineering/thermal/AXA
 
 
 def isnotnan(arg):
-   try:
-       np.isnan(arg)
-   except: # Need to use blanket except, NotImplementedError won't catch
-       return True
-   return False
+    try:
+        np.isnan(arg)
+    except:  # Need to use blanket except, NotImplementedError won't catch
+        return True
+    return False
 
 
 def opensqlitefile():
@@ -33,9 +33,9 @@ def opensqlitefile():
 
 def opentdbfile():
     try:
-        tdbs = pickle.load(open(axafauto_url + 'TDB_Archive/tdb_all.pkl','r'))
+        tdbs = pickle.load(open(axafauto_url + 'TDB_Archive/tdb_all.pkl', 'r'))
     except:
-        tdbs = pickle.load(open(home + '/AXAFAUTO/TDB_Archive/tdb_all.pkl','r'))
+        tdbs = pickle.load(open(home + '/AXAFAUTO/TDB_Archive/tdb_all.pkl', 'r'))
     return tdbs
 
 
@@ -57,10 +57,10 @@ def getTDBLimits(msid, dbver='p013', tdbs=None):
 
         This also adds a list of set numbers.
         """
-        limits = {'setkeys':[]}
+        limits = {'setkeys': []}
         for setnum in dbsets.keys():
             setnumint = int(setnum) - 1
-            limits.update({setnumint:dbsets[setnum]})
+            limits.update({setnumint: dbsets[setnum]})
             limits['setkeys'].append(setnumint)
         return limits
 
@@ -105,8 +105,6 @@ def getTDBLimits(msid, dbver='p013', tdbs=None):
     return tdblimits
 
 
-
-
 def getSafetyLimits(msid):
     """ Update the current database numeric limits
 
@@ -144,15 +142,14 @@ def getSafetyLimits(msid):
                           a.caution_low, a.caution_high, a.warning_high FROM limits AS a 
                           WHERE a.setkey = a.default_set AND a.msid = ?
                           AND a.modversion = (SELECT MAX(b.modversion) FROM limits AS b
-                          WHERE a.msid = b.msid and a.setkey = b.setkey)''', [msid,])
+                          WHERE a.msid = b.msid and a.setkey = b.setkey)''', [msid, ])
         lims = cursor.fetchone()
-        glimits = {'warning_low':lims[3], 'caution_low':lims[4], 'caution_high':lims[5], 
-                   'warning_high':lims[6]}
+        glimits = {'warning_low': lims[3], 'caution_low': lims[4], 'caution_high': lims[5],
+                   'warning_high': lims[6]}
     except:
         print('{} not in G_LIMMON Database, message generated in pylimmon.getSafetyLimits()'
               .format(msid.upper()))
         glimits = {}
-
 
     # If there are no limits in the TDB but there are in GLIMMON, use the
     # GLIMMON limits
@@ -165,19 +162,19 @@ def getSafetyLimits(msid):
 
         if glimits['warning_low'] < safetylimits['warning_low']:
             safetylimits['warning_low'] = glimits['warning_low']
-            print('Updated warning low safety limit for %s'%msid)
+            print('Updated warning low safety limit for %s' % msid)
 
         if glimits['caution_low'] < safetylimits['caution_low']:
             safetylimits['caution_low'] = glimits['caution_low']
-            print('Updated caution low safety limit for %s'%msid)
+            print('Updated caution low safety limit for %s' % msid)
 
         if glimits['warning_high'] > safetylimits['warning_high']:
             safetylimits['warning_high'] = glimits['warning_high']
-            print('Updated warning high safety limit for %s'%msid)
+            print('Updated warning high safety limit for %s' % msid)
 
         if glimits['caution_high'] > safetylimits['caution_high']:
             safetylimits['caution_high'] = glimits['caution_high']
-            print('Updated caution high safety limit for %s'%msid)
+            print('Updated caution high safety limit for %s' % msid)
 
     return safetylimits
 
@@ -188,7 +185,7 @@ def getMissionSafetyLimits(msid, tdbs=None):
     '''
     def liminterp(tsum, times, limits):
         # Nans are filled in for cases where a limit isn't established until some point after launch
-        # The last date for safety limits and for trending limits should be near the current time and 
+        # The last date for safety limits and for trending limits should be near the current time and
         #  be identical so that one doesn't dominate when it shouldn't.
         f = interpolate.interp1d(times, limits, kind='zero', bounds_error=False, fill_value=np.nan)
         return list(f(tsum))
@@ -196,8 +193,8 @@ def getMissionSafetyLimits(msid, tdbs=None):
     limdict = getlimits(msid)
     lastdate = np.max(limdict['limsets'][0]['times'])
 
-    trendinglimits = {'msid':msid, 'warning_low':[], 'caution_low':[], 'caution_high':[], 
-                      'warning_high':[], 'times':[]}
+    trendinglimits = {'msid': msid, 'warning_low': [], 'caution_low': [], 'caution_high': [],
+                      'warning_high': [], 'times': []}
 
     # Assume the default set is always 0 - I know this is a hack, but it will work for now
     trendinglimits['warning_low'] = limdict['limsets'][0]['warning_low']
@@ -209,8 +206,8 @@ def getMissionSafetyLimits(msid, tdbs=None):
     if not tdbs:
         tdbs = opentdbfile()
     tdbversions = gdb.gettdb(return_dates=True)
-    allsafetylimits = {'warning_low':[], 'caution_low':[], 'caution_high':[], 
-                      'warning_high':[], 'times':[]}
+    allsafetylimits = {'warning_low': [], 'caution_low': [], 'caution_high': [],
+                       'warning_high': [], 'times': []}
     for ver in np.sort(tdbversions.keys()):
         date = tdbversions[ver]
         safetylimits = getTDBLimits(msid, dbver=ver, tdbs=tdbs)
@@ -229,15 +226,17 @@ def getMissionSafetyLimits(msid, tdbs=None):
         allsafetylimits[key].append(allsafetylimits[key][-1])
     allsafetylimits['times'][-1] = lastdate
 
-    tsum = np.sort(np.unique(np.concatenate((trendinglimits['times'],allsafetylimits['times']))))
+    tsum = np.sort(np.unique(np.concatenate((trendinglimits['times'], allsafetylimits['times']))))
     for kind in ['warning_low', 'caution_low', 'caution_high', 'warning_high']:
         trendinglimits[kind] = liminterp(tsum, trendinglimits['times'], trendinglimits[kind])
         allsafetylimits[kind] = liminterp(tsum, allsafetylimits['times'], allsafetylimits[kind])
         if 'high' in kind:
-            allsafetylimits[kind] = [np.nanmax((t,a)) for t, a in zip(trendinglimits[kind], allsafetylimits[kind])]
+            allsafetylimits[kind] = [
+                np.nanmax((t, a)) for t, a in zip(trendinglimits[kind], allsafetylimits[kind])]
             # allsafetylimits[kind] = list(np.nanmax((trendinglimits[kind], allsafetylimits[kind]), axis=0))
         else:
-            allsafetylimits[kind] = [np.nanmin((t,a)) for t, a in zip(trendinglimits[kind], allsafetylimits[kind])]
+            allsafetylimits[kind] = [
+                np.nanmin((t, a)) for t, a in zip(trendinglimits[kind], allsafetylimits[kind])]
 
     allsafetylimits['times'] = list(tsum)
 
@@ -249,26 +248,24 @@ def getMissionSafetyLimits(msid, tdbs=None):
     return allsafetylimits
 
 
-
-
 def getlimits(msid):
 
     db = opensqlitefile()
     cursor = db.cursor()
     cursor.execute('''SELECT a.msid, a.setkey, a.datesec, a.mlmenable, a.default_set, a.switchstate, a.mlimsw, 
                       a.caution_high, a.caution_low, a.warning_high, a.warning_low 
-                      FROM limits AS a WHERE a.msid=? ''', [msid.lower(),])
+                      FROM limits AS a WHERE a.msid=? ''', [msid.lower(), ])
     current_limits = cursor.fetchall()
     db.close()
 
-    limdict = {'msid':current_limits[0][0], 'limsets':{}}
+    limdict = {'msid': current_limits[0][0], 'limsets': {}}
 
     for row in current_limits:
         setnum = row[1]
         if setnum not in limdict['limsets'].keys():
-            limdict['limsets'][row[1]] = {'switchstate':[], 'mlmenable':[], 'times':[], 
-                                          'caution_high':[], 'caution_low':[], 'warning_low':[], 
-                                          'warning_high':[], 'mlimsw':[], 'default_set':[]}
+            limdict['limsets'][row[1]] = {'switchstate': [], 'mlmenable': [], 'times': [],
+                                          'caution_high': [], 'caution_low': [], 'warning_low': [],
+                                          'warning_high': [], 'mlimsw': [], 'default_set': []}
 
         limdict['limsets'][setnum]['switchstate'].append(row[5])
         limdict['limsets'][setnum]['mlmenable'].append(row[3])
@@ -284,57 +281,65 @@ def getlimits(msid):
     #
     # You count on this being done in getMissionSafetyLimits()
     for setnum in limdict['limsets'].keys():
-        limdict['limsets'][setnum]['times'].append(DateTime().secs + 24*3600)
-        limdict['limsets'][setnum]['warning_low'].append(limdict['limsets'][setnum]['warning_low'][-1])
-        limdict['limsets'][setnum]['caution_low'].append(limdict['limsets'][setnum]['caution_low'][-1])
-        limdict['limsets'][setnum]['caution_high'].append(limdict['limsets'][setnum]['caution_high'][-1])
-        limdict['limsets'][setnum]['warning_high'].append(limdict['limsets'][setnum]['warning_high'][-1])
+        limdict['limsets'][setnum]['times'].append(DateTime().secs + 24 * 3600)
+        limdict['limsets'][setnum]['warning_low'].append(
+            limdict['limsets'][setnum]['warning_low'][-1])
+        limdict['limsets'][setnum]['caution_low'].append(
+            limdict['limsets'][setnum]['caution_low'][-1])
+        limdict['limsets'][setnum]['caution_high'].append(
+            limdict['limsets'][setnum]['caution_high'][-1])
+        limdict['limsets'][setnum]['warning_high'].append(
+            limdict['limsets'][setnum]['warning_high'][-1])
         limdict['limsets'][setnum]['mlmenable'].append(limdict['limsets'][setnum]['mlmenable'][-1])
         limdict['limsets'][setnum]['mlimsw'].append(limdict['limsets'][setnum]['mlimsw'][-1])
-        limdict['limsets'][setnum]['default_set'].append(limdict['limsets'][setnum]['default_set'][-1])
-        limdict['limsets'][setnum]['switchstate'].append(limdict['limsets'][setnum]['switchstate'][-1])
+        limdict['limsets'][setnum]['default_set'].append(
+            limdict['limsets'][setnum]['default_set'][-1])
+        limdict['limsets'][setnum]['switchstate'].append(
+            limdict['limsets'][setnum]['switchstate'][-1])
 
     return limdict
 
 
 def getstates(msid):
-        try:
-            db.close()
-        except:
-            pass
+    try:
+        db.close()
+    except:
+        pass
 
-        db = opensqlitefile()
-        cursor = db.cursor()
-        cursor.execute('''SELECT a.msid, a.setkey, a.datesec, a.mlmenable, a.default_set, 
-                          a.switchstate, a.mlimsw, a.expst FROM expected_states AS a WHERE a.msid=? ''', 
-                       [msid.lower(),])
-        current_limits = cursor.fetchall()
+    db = opensqlitefile()
+    cursor = db.cursor()
+    cursor.execute('''SELECT a.msid, a.setkey, a.datesec, a.mlmenable, a.default_set, 
+                          a.switchstate, a.mlimsw, a.expst FROM expected_states AS a WHERE a.msid=? ''',
+                   [msid.lower(), ])
+    current_limits = cursor.fetchall()
 
-        limdict = {'msid':current_limits[0][0], 'limsets':{}}
+    limdict = {'msid': current_limits[0][0], 'limsets': {}}
 
-        for row in current_limits:
-            setnum = row[1]
-            if setnum not in limdict['limsets'].keys():
-                limdict['limsets'][row[1]] = {'switchstate':[], 'mlmenable':[], 'times':[], 
-                                              'expst':[], 'mlimsw':[], 'default_set':[]}
+    for row in current_limits:
+        setnum = row[1]
+        if setnum not in limdict['limsets'].keys():
+            limdict['limsets'][row[1]] = {'switchstate': [], 'mlmenable': [], 'times': [],
+                                          'expst': [], 'mlimsw': [], 'default_set': []}
 
-            limdict['limsets'][setnum]['switchstate'].append(row[5])
-            limdict['limsets'][setnum]['mlmenable'].append(row[3])
-            limdict['limsets'][setnum]['times'].append(row[2])
-            limdict['limsets'][setnum]['expst'].append(row[7])
-            limdict['limsets'][setnum]['mlimsw'].append(row[6])
-            limdict['limsets'][setnum]['default_set'].append(row[4])
+        limdict['limsets'][setnum]['switchstate'].append(row[5])
+        limdict['limsets'][setnum]['mlmenable'].append(row[3])
+        limdict['limsets'][setnum]['times'].append(row[2])
+        limdict['limsets'][setnum]['expst'].append(row[7])
+        limdict['limsets'][setnum]['mlimsw'].append(row[6])
+        limdict['limsets'][setnum]['default_set'].append(row[4])
 
-        # Append data for current time + 24 hours to avoid interpolation errors
-        for setnum in limdict['limsets'].keys():
-            limdict['limsets'][setnum]['times'].append(DateTime().secs + 24*3600)
-            limdict['limsets'][setnum]['expst'].append(limdict['limsets'][setnum]['expst'][-1])
-            limdict['limsets'][setnum]['mlmenable'].append(limdict['limsets'][setnum]['mlmenable'][-1])
-            limdict['limsets'][setnum]['mlimsw'].append(limdict['limsets'][setnum]['mlimsw'][-1])
-            limdict['limsets'][setnum]['default_set'].append(limdict['limsets'][setnum]['default_set'][-1])
-            limdict['limsets'][setnum]['switchstate'].append(limdict['limsets'][setnum]['switchstate'][-1])
+    # Append data for current time + 24 hours to avoid interpolation errors
+    for setnum in limdict['limsets'].keys():
+        limdict['limsets'][setnum]['times'].append(DateTime().secs + 24 * 3600)
+        limdict['limsets'][setnum]['expst'].append(limdict['limsets'][setnum]['expst'][-1])
+        limdict['limsets'][setnum]['mlmenable'].append(limdict['limsets'][setnum]['mlmenable'][-1])
+        limdict['limsets'][setnum]['mlimsw'].append(limdict['limsets'][setnum]['mlimsw'][-1])
+        limdict['limsets'][setnum]['default_set'].append(
+            limdict['limsets'][setnum]['default_set'][-1])
+        limdict['limsets'][setnum]['switchstate'].append(
+            limdict['limsets'][setnum]['switchstate'][-1])
 
-        return limdict
+    return limdict
 
 
 #-------------------------------------------------------------------------------------------------
@@ -356,7 +361,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
     '''
 
     def combine_limit_checks(all_sets_check):
-        
+
         all_sets_check_keys = all_sets_check.keys()
         currentset = all_sets_check[all_sets_check_keys.pop(0)]
         wh = currentset['warning_high']
@@ -370,18 +375,17 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
             ch = ch | currentset['caution_high']
             cl = cl | currentset['caution_low']
             wl = wl | currentset['warning_low']
-        
-        return {'warning_high_violation':wh, 'caution_high_violation':ch, 
-                'caution_low_violation':cl, 'warning_low_violation':wl}
 
-        
+        return {'warning_high_violation': wh, 'caution_high_violation': ch,
+                'caution_low_violation': cl, 'warning_low_violation': wl}
+
     def check_limit_set(msid, limdict, setnum, data):
         mlimsws = limdict['limsets'][setnum]['mlimsw']
         switchstates = limdict['limsets'][setnum]['switchstate']
         times = limdict['limsets'][setnum]['times']
         defaults = limdict['limsets'][setnum]['default_set']
 
-        mask = np.array([False]*len(data.times))
+        mask = np.array([False] * len(data.times))
 
         # [:-1] because the last limit definition is just a copy of the previous definition
         items = zip(times[:-1], times[1:], mlimsws[:-1], switchstates[:-1], defaults[:-1])
@@ -389,7 +393,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
             ind1 = data.times >= t1
             ind2 = data.times < t2
             time_ind = ind1 & ind2
-            
+
             if 'none' in mlimsw:
                 if default == setnum:
                     mask = mask | time_ind
@@ -406,10 +410,9 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
 
         return check
 
-            
     def check_limit(msid, limdict, setnum, data, mask, limtype):
         limtype = limtype.lower()
-        
+
         tlim = limdict['limsets'][setnum]['times']
         vlim = limdict['limsets'][setnum][limtype]
         enab = limdict['limsets'][setnum]['mlmenable']
@@ -436,14 +439,14 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
 
     limdict = getlimits(greta_msid.lower())
     mlimsw = np.unique([s for setnum in limdict['limsets'].keys()
-                               for s in limdict['limsets'][setnum]['mlimsw']])
+                        for s in limdict['limsets'][setnum]['mlimsw']])
     mlimsw = list(mlimsw)
     if 'none' in mlimsw:
         mlimsw.remove('none')
     msids = [msid, ]
     if mlimsw:
         msids.extend(mlimsw)
-        
+
     data = fetch.Msidset(msids, t1, t2, stat=None)
     data.interpolate()
     for mlimsw_msid in mlimsw:
@@ -457,7 +460,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
     combined_sets_check['time'] = data.times
 
     return combined_sets_check
-        
+
 
 #-------------------------------------------------------------------------------------------------
 # Code for checking expected states
@@ -477,24 +480,23 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
     '''
 
     def combine_state_checks(all_sets_check):
-        
+
         all_sets_check_keys = all_sets_check.keys()
         es = all_sets_check[all_sets_check_keys.pop(0)]
-        
+
         for setnum in all_sets_check_keys:
             currentset = all_sets_check[setnum]
             es = es | currentset['expst']
-        
+
         return es
 
-        
     def check_state_set(msid, limdict, setnum, data):
         mlimsws = limdict['limsets'][setnum]['mlimsw']
         switchstates = limdict['limsets'][setnum]['switchstate']
         times = limdict['limsets'][setnum]['times']
         defaults = limdict['limsets'][setnum]['default_set']
 
-        mask = np.array([False]*len(data.times))
+        mask = np.array([False] * len(data.times))
 
         # [:-1] because the last limit definition is just a copy of the previous definition
         items = zip(times[:-1], times[1:], mlimsws[:-1], switchstates[:-1], defaults[:-1])
@@ -502,7 +504,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
             ind1 = data.times >= t1
             ind2 = data.times < t2
             time_ind = ind1 & ind2
-            
+
             if 'none' in mlimsw:
                 if default == setnum:
                     mask = mask | time_ind
@@ -510,17 +512,16 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
                 mask_switch = data[mlimsw].vals == switchstate.upper()
                 mask_switch = mask_switch & time_ind
                 mask = mask_switch | mask
-            
+
         return check_state(msid, limdict, setnum, data, mask)
 
-        
     def check_state(msid, limdict, setnum, data, mask):
         ''' Check telemetry over time span for expected states.
-        
+
         Since the history of expected state changes needs to be considered, the expected state
         for each telemetry point in time needs to be interpolated.
         '''
-        
+
         # Get the history of expected states
         tlim = limdict['limsets'][setnum]['times']
         vlim = limdict['limsets'][setnum]['expst']
@@ -537,12 +538,13 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
             vlim_numeric[vlim == state] = limid
 
         # get history of expected states interpolated onto telemetry times
-        f = interpolate.interp1d(tlim, vlim_numeric, kind='zero', bounds_error=False, fill_value=np.nan)
+        f = interpolate.interp1d(
+            tlim, vlim_numeric, kind='zero', bounds_error=False, fill_value=np.nan)
         intlim_numeric = f(data.times)
 
         # Generate a numeric representation of the data, states not present in limdict are set to -1
         # This tells us what the actual states are at each time point
-        vals_numeric = np.array([-1]*len(data.times))
+        vals_numeric = np.array([-1] * len(data.times))
         for state, limid in zip(unique_states, limids):
             vals_numeric[data[msid].vals == state] = limid
 
@@ -560,14 +562,13 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
 
         return limcheck
 
-
     if not greta_msid:
         # If greta_msid is not defined, then they are the same msid
         greta_msid = msid
 
     limdict = getstates(greta_msid.lower())
     mlimsw = np.unique([s for setnum in limdict['limsets'].keys()
-                               for s in limdict['limsets'][setnum]['mlimsw']])
+                        for s in limdict['limsets'][setnum]['mlimsw']])
 
     mlimsw = list(mlimsw)
     if 'none' in mlimsw:
@@ -575,7 +576,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
     msids = [msid, ]
     if mlimsw:
         msids.extend(mlimsw)
-    
+
     try:
         data = fetch.Msidset(msids, t1, t2, stat=None)
     except:
@@ -591,8 +592,5 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         all_sets_check[setnum] = check_state_set(limdict['msid'], limdict, setnum, data)
 
     combined_sets_check = combine_state_checks(all_sets_check)
-    
-    return {'expected_state_violation':combined_sets_check, 'time':data.times}
-        
-    
 
+    return {'expected_state_violation': combined_sets_check, 'time': data.times}
