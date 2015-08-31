@@ -448,7 +448,8 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         msids.extend(mlimsw)
 
     data = fetch.Msidset(msids, t1, t2, stat=None)
-    data.interpolate()
+    d = np.max(np.min([np.min(np.diff(data[m].times)) for m in msids]), 0.25620782)
+    data.interpolate(dt=d)
     for mlimsw_msid in mlimsw:
         data[mlimsw_msid].vals = np.array([s.strip() for s in data[mlimsw_msid].vals])
 
