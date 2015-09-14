@@ -6,7 +6,7 @@ import logging
 import time
 from os.path import expanduser
 from os.path import join as pathjoin
-from cPickle import pickle
+import cPickle as pickle
 
 import pylimmon
 
