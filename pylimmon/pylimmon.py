@@ -468,19 +468,45 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         violation_data = {'extrema':[], 'times':[]}
         for start, stop in spans:
             data = fetch.Msid(msid, start, stop, stat=None)
-            extrema_ind = np.argmin(data.vals)
+            try:
+                extrema_ind = np.argmin(data.vals)
+            except:
+                # Expand the time span and then work within the original time span
+                data = fetch.Msid(msid, start - 600, stop + 600, stat=None)
+                ind = (data.times >= start) & (data.times <= stop)
+                extrema_ind = np.argmin(data.vals[ind])
+
             violation_data['extrema'].append(data.vals[extrema_ind])
             violation_data['times'].append(data.times[extrema_ind])
+
         return violation_data
 
     def get_max_violation_data(msid, spans):
         ''' Retrieve detailed data during violation time spans. '''
         violation_data = {'extrema':[], 'times':[]}
+
         for start, stop in spans:
             data = fetch.Msid(msid, start, stop, stat=None)
-            extrema_ind = np.argmax(data.vals)
+
+            try:
+                extrema_ind = np.argmax(data.vals)
+            except:
+                # Expand the time span and then work within the original time span
+                data = fetch.Msid(msid, start - 600, stop + 600, stat=None)
+                ind = (data.times >= start) & (data.times <= stop)
+                try:
+                    extrema_ind = np.argmax(data.vals[ind])
+                except:
+                    import readline # optional, will allow Up/Down/History in the console
+                    import code
+                    vars = globals().copy()
+                    vars.update(locals())
+                    shell = code.InteractiveConsole(vars)
+                    shell.interact()
+                    
             violation_data['extrema'].append(data.vals[extrema_ind])
             violation_data['times'].append(data.times[extrema_ind])
+
         return violation_data
 
     # MSID names should be in lower case
