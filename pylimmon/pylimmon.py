@@ -471,9 +471,10 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
             try:
                 extrema_ind = np.argmin(data.vals)
             except:
-                # Expand the time span and then work within the original time span
+                # Expand the time span and then work within the original time span (almost)
                 data = fetch.Msid(msid, start - 600, stop + 600, stat=None)
-                ind = (data.times >= start) & (data.times <= stop)
+                d = np.median(np.diff(data.times)) / 2.
+                ind = (data.times >= start - d) & (data.times <= stop + d)
                 extrema_ind = np.argmin(data.vals[ind])
 
             violation_data['extrema'].append(data.vals[extrema_ind])
@@ -491,19 +492,12 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
             try:
                 extrema_ind = np.argmax(data.vals)
             except:
-                # Expand the time span and then work within the original time span
+                # Expand the time span and then work within the original time span (almost)
                 data = fetch.Msid(msid, start - 600, stop + 600, stat=None)
-                ind = (data.times >= start) & (data.times <= stop)
-                try:
-                    extrema_ind = np.argmax(data.vals[ind])
-                except:
-                    import readline # optional, will allow Up/Down/History in the console
-                    import code
-                    vars = globals().copy()
-                    vars.update(locals())
-                    shell = code.InteractiveConsole(vars)
-                    shell.interact()
-                    
+                d = np.median(np.diff(data.times)) / 2.
+                ind = (data.times >= start - d) & (data.times <= stop + d)
+                extrema_ind = np.argmax(data.vals[ind])
+
             violation_data['extrema'].append(data.vals[extrema_ind])
             violation_data['times'].append(data.times[extrema_ind])
 
