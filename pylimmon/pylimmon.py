@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 import re
 import sqlite3
+from itertools import groupby
 import cPickle as pickle
 from scipy import interpolate
 from os.path import expanduser
@@ -219,7 +220,7 @@ def get_mission_safety_limits(msid, tdbs=None):
     this assumes that glimmon limits can indicate when a safety limit has been adjusted
     """
     def liminterp(tsum, times, limits):
-        # Nans are filled in for cases where a limit isn't established until some point after launch
+        # nans are filled in for cases where a limit isn't established until some point after launch
         # The last date for safety limits and for trending limits should be near the current time and
         #  be identical so that one doesn't dominate when it shouldn't.
         f = interpolate.interp1d(times, limits, kind='zero', bounds_error=False, fill_value=np.nan)
@@ -256,7 +257,7 @@ def get_mission_safety_limits(msid, tdbs=None):
     if len(allsafetylimits['warning_low']) == 0:
         return None
 
-    # Repeat the last limit to prevent NaNs from being entered for safety limits when interpolating
+    # Repeat the last limit to prevent nans from being entered for safety limits when interpolating
     for key in allsafetylimits.keys():
         allsafetylimits[key].append(allsafetylimits[key][-1])
     allsafetylimits['times'][-1] = lastdate
@@ -353,28 +354,33 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
 
         all_sets_check_keys = all_sets_check.keys()
         currentset = all_sets_check[all_sets_check_keys.pop(0)]
-        wh = currentset['warning_high']
+
+        # wh is the boolean array where true represents where violations occur
+        wh = currentset['warning_high_bool']
+
+        # whlim contains warning high limits where this set is enabled and relevant
         whlim = currentset['warning_high_limit']
 
-        ch = currentset['caution_high']
+        # whobs contains observed values where warning high violations occur
+        whobs = currentset['warning_high_observed']
+
+        # The same pattern for defining bool, limit, and observed data is repeated for other limit
+        # types.
+        ch = currentset['caution_high_bool']
         chlim = currentset['caution_high_limit']
+        chobs = currentset['caution_high_observed']
 
-        cl = currentset['caution_low']
+        cl = currentset['caution_low_bool']
         cllim = currentset['caution_low_limit']
+        clobs = currentset['caution_low_observed']
 
-        wl = currentset['warning_low']
+        wl = currentset['warning_low_bool']
         wllim = currentset['warning_low_limit']
-
-        # import readline # optional, will allow Up/Down/History in the console
-        # import code
-        # vars = globals().copy()
-        # vars.update(locals())
-        # shell = code.InteractiveConsole(vars)
-        # shell.interact()
+        wlobs = currentset['warning_low_observed']
 
 
-        setid = np.zeros(len(wh), dtype=np.int) - 1
-        # Locations without NANs same for all limit types
+        setid = np.zeros(len(wh), dtype=np.int8) - 1
+        # Locations without nans same for all limit types
         ind = ~np.isnan(whlim) 
         setid[ind] = 0
 
@@ -382,27 +388,33 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
             currentset = all_sets_check[setnum]
             ind = ~np.isnan(currentset['warning_high_limit'])
     
-            wh = wh | currentset['warning_high']
+            wh = wh | currentset['warning_high_bool']
             whlim[ind] = currentset['warning_high_limit'][ind]
-    
-            ch = ch | currentset['caution_high']
+            whobs[ind] = currentset['warning_high_observed'][ind] 
+            
+            h = ch | currentset['caution_high_bool']
             chlim[ind] = currentset['caution_high_limit'][ind]
+            chobs[ind] = currentset['caution_high_observed'][ind] 
 
-            cl = cl | currentset['caution_low']
+            cl = cl | currentset['caution_low_bool']
             cllim[ind] = currentset['caution_low_limit'][ind]
-        
-            wl = wl | currentset['warning_low']
+            clobs[ind] = currentset['caution_low_observed'][ind]
+
+            wl = wl | currentset['warning_low_bool']
             wllim[ind] = currentset['warning_low_limit'][ind]
+            wlobs[ind] = currentset['warning_low_observed'][ind]
 
             setid[ind] = int(setnum)
 
-        return {'warning_high_violation': wh, 'warning_high_limit': whlim,
-                'caution_high_violation': ch, 'caution_high_limit': chlim,
-                'caution_low_violation': cl, 'caution_low_limit': cllim, 
-                'warning_low_violation': wl, 'warning_low_limit': wllim,
+        return {'warning_high_bool': wh, 'warning_high_limit': whlim, 'warning_high_observed':whobs,
+                'caution_high_bool': ch, 'caution_high_limit': chlim, 'caution_high_observed':chobs,
+                'caution_low_bool': cl, 'caution_low_limit': cllim, 'caution_low_observed':clobs,
+                'warning_low_bool': wl, 'warning_low_limit': wllim, 'warning_low_observed':wlobs,
                 'active_set_ids':setid}
 
     def check_limit_set(msid, limdict, setnum, data):
+
+        # Define key variables
         mlimsws = limdict['limsets'][setnum]['mlimsw']
         switchstates = limdict['limsets'][setnum]['switchstate']
         times = limdict['limsets'][setnum]['times']
@@ -427,23 +439,38 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
                 mask_switch = mask_switch & time_ind
                 mask = mask_switch | mask
 
+
+
+
+
+        # Check all data for current msid against all possible limit violations.
         check = {}
-        check['warning_high'], check['warning_high_limit'] = check_limit(msid, limdict, setnum, data, mask, 'warning_high')
-        check['caution_high'], check['caution_high_limit'] = check_limit(msid, limdict, setnum, data, mask, 'caution_high')
-        check['caution_low'], check['caution_low_limit'] = check_limit(msid, limdict, setnum, data, mask, 'caution_low')
-        check['warning_low'], check['warning_low_limit'] = check_limit(msid, limdict, setnum, data, mask, 'warning_low')
+        for limtype in ['warning_high', 'caution_high', 'caution_low', 'warning_low']:
+            boolname = '{}_bool'.format(limtype)
+            limitname = '{}_limit'.format(limtype)
+            observedname = '{}_observed'.format(limtype)
+            check[boolname], check[limitname], check[observedname] = check_limit(
+                msid, limdict, setnum, data, mask, limtype)
+
+
 
         return check
 
     def check_limit(msid, limdict, setnum, data, mask, limtype):
+
+        # Ensure limtype is lower case.
         limtype = limtype.lower()
 
+        # Get the history of limits.
         tlim = limdict['limsets'][setnum]['times']
         vlim = limdict['limsets'][setnum][limtype]
         enab = limdict['limsets'][setnum]['mlmenable']
 
+        # Get the history of limits interpolated noto telemetry times.
         f = interpolate.interp1d(tlim, vlim, kind='zero', bounds_error=False, fill_value=np.nan)
         intlim = f(data.times)
+
+        # Generate boolean array where True marks where a violation occurs.
         if 'high' in limtype:
             limcheck = data[msid].vals > intlim
         else:
@@ -457,51 +484,44 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         # Make sure violations are not reported when this set is not active
         limcheck[~mask] = False
 
-        # Flag durations when this set is not enabled or active with NANs.
-        intlim[~enabled] = np.NAN
-        intlim[~mask] = np.NAN
+        # Flag durations when this set is not enabled or active with nans.
+        intlim[~enabled] = np.nan
+        intlim[~mask] = np.nan
 
-        return limcheck, intlim
+        # Generate an array of observed violating values.
+        vals = np.empty(len(data.times), dtype=np.float64)
+        vals[:] = np.nan
+        vals[limcheck] = data[msid].vals[limcheck]
 
-    def get_min_violation_data(msid, spans):
-        ''' Retrieve detailed data during violation time spans. '''
-        violation_data = {'extrema':[], 'times':[]}
-        for start, stop in spans:
-            data = fetch.Msid(msid, start, stop, stat=None)
-            try:
-                extrema_ind = np.argmin(data.vals)
-            except:
-                # Expand the time span and then work within the original time span (almost)
-                data = fetch.Msid(msid, start - 600, stop + 600, stat=None)
-                d = np.median(np.diff(data.times)) / 2.
-                ind = (data.times >= start - d) & (data.times <= stop + d)
-                extrema_ind = np.argmin(data.vals[ind])
+        # Recap, all three returned arrays are of the same length. The presence of nans
+        # is relied upon later when combining sets to determine where each set is relevant.
+        #
+        # limcheck = boolean array where true = violation
+        # intlim = array where non-nans are limits
+        # vals = array where non-nans are values observed during violations
 
-            violation_data['extrema'].append(data.vals[extrema_ind])
-            violation_data['times'].append(data.times[extrema_ind])
+        return limcheck, intlim, vals
 
-        return violation_data
+    def process_combined_limit_checks(times, obs, lim, bools, actid, limtype):
+        grouped_consec_limit_bool = [(k, len(list(g))) for k, g in groupby(bools)]
+        ends = np.cumsum([x[1] for x in grouped_consec_limit_bool])
+        starts = np.concatenate(([0,], ends[:-1]))
 
-    def get_max_violation_data(msid, spans):
-        ''' Retrieve detailed data during violation time spans. '''
-        violation_data = {'extrema':[], 'times':[]}
+        if ends[-1] == len(ends):
+            ends = ends[:-1]
+            starts = starts[:-1]
 
-        for start, stop in spans:
-            data = fetch.Msid(msid, start, stop, stat=None)
+        returnlist = []
+        for s, e in zip(starts, ends):
+            if ~np.isnan(obs[s]):
+                lims = np.array([k for k, g in groupby(lim[s:e])])
+                actids = np.array([k for k, g in groupby(actid[s:e])])
+                returnlist.append((times[s:e], obs[s:e], lims, actids, limtype))
 
-            try:
-                extrema_ind = np.argmax(data.vals)
-            except:
-                # Expand the time span and then work within the original time span (almost)
-                data = fetch.Msid(msid, start - 600, stop + 600, stat=None)
-                d = np.median(np.diff(data.times)) / 2.
-                ind = (data.times >= start - d) & (data.times <= stop + d)
-                extrema_ind = np.argmax(data.vals[ind])
+        # return [(times[s], times[e], obs[s:e], lims, actid, 'limit') for s, e
+        #         in zip(starts, ends) if len(obs[s]) > 0]
+        return returnlist
 
-            violation_data['extrema'].append(data.vals[extrema_ind])
-            violation_data['times'].append(data.times[extrema_ind])
-
-        return violation_data
 
     # MSID names should be in lower case
     msid = msid.lower()
@@ -531,79 +551,33 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
     for mlimsw_msid in mlimsw:
         data[mlimsw_msid].vals = np.array([s.strip() for s in data[mlimsw_msid].vals])
 
+
+
     # Calculate violations for all limit types (caution high, etc.), for all sets.
     # Violations are only indicated where the set is valid as indicated by MLIMSW, if applicable.
     all_sets_check = {}
     for setnum in limdict['limsets'].keys():
         all_sets_check[setnum] = check_limit_set(msid, limdict, setnum, data)
 
+
     # Return boolean arrays for each limit type after compiling the results for each limit set.
     combined_sets_check = combine_limit_checks(all_sets_check)
-    combined_sets_check['time'] = data.times
-
-    # import readline # optional, will allow Up/Down/History in the console
-    # import code
-    # vars = globals().copy()
-    # vars.update(locals())
-    # shell = code.InteractiveConsole(vars)
-    # shell.interact()
 
 
-    # combined_sets_check has this format coming out of combine_limit_checks()
-    # {'warning_high_violation': wh, 'warning_high_limit': whlim,
-    #  'caution_high_violation': ch, 'caution_high_limit': chlim,
-    #  'caution_low_violation': cl, 'caution_low_limit': cllim, 
-    #  'warning_low_violation': wl, 'warning_low_limit': wllim}, setid
+    # Produce a list of tuples, where each tuple corresponds to a single violation
+    returnlist = []
+    for limtype in ['warning_low', 'caution_low', 'caution_high', 'warning_high']:
+        obsname = '{}_observed'.format(limtype)
+        limitname = '{}_limit'.format(limtype)
+        boolname = '{}_bool'.format(limtype)
+        if any(combined_sets_check[boolname]):
+            returnlist.extend(process_combined_limit_checks(data.times, 
+                combined_sets_check[obsname], combined_sets_check[limitname],
+                combined_sets_check[boolname], combined_sets_check['active_set_ids'], limtype))
 
-    # Produce the final dictionary to return only the time spans where violations occur
-    violation_dict = {'any':False}
+    return returnlist
 
-    # Note below that only the first value for active_set_ids and limits are returned. This could
-    # be changed at some point in the future, however it is rare that a set id or limit will
-    # change during a limit violation.
-    if any(combined_sets_check['warning_low_violation']):
-        timebounds, indexbounds = find_violation_time_spans(combined_sets_check['time'], 
-                                                      combined_sets_check['warning_low_violation'])
-        activesets = [combined_sets_check['active_set_ids'][a] for a,b in indexbounds]
-        limitvals = [combined_sets_check['warning_low_limit'][a] for a,b in indexbounds]
-        violation_dict.update({'warning_low': {'timespans':timebounds, 'activesets':activesets, 'limits':limitvals}})
-        violation_data = get_min_violation_data(msid, timebounds)
-        violation_dict['warning_low'].update(violation_data)
-        violation_dict['any'] = True
 
-    if any(combined_sets_check['caution_low_violation']):
-        timebounds, indexbounds = find_violation_time_spans(combined_sets_check['time'], 
-                                                      combined_sets_check['caution_low_violation'])
-        activesets = [combined_sets_check['active_set_ids'][a] for a,b in indexbounds]
-        limitvals = [combined_sets_check['caution_low_limit'][a] for a,b in indexbounds]
-        violation_dict.update({'caution_low': {'timespans':timebounds, 'activesets':activesets, 'limits':limitvals}})
-        violation_data = get_min_violation_data(msid,timebounds)
-        violation_dict['caution_low'].update(violation_data)
-        violation_dict['any'] = True
-
-    if any(combined_sets_check['caution_high_violation']):
-        timebounds, indexbounds = find_violation_time_spans(combined_sets_check['time'], 
-                                                      combined_sets_check['caution_high_violation'])
-        activesets = [combined_sets_check['active_set_ids'][a] for a,b in indexbounds]
-        limitvals = [combined_sets_check['caution_high_limit'][a] for a,b in indexbounds]
-        violation_dict.update({'caution_high': {'timespans':timebounds, 'activesets':activesets, 'limits':limitvals}})
-        violation_data = get_max_violation_data(msid, timebounds)
-        violation_dict['caution_high'].update(violation_data)
-        violation_dict['any'] = True
-
-    if any(combined_sets_check['warning_high_violation']):
-        timebounds, indexbounds = find_violation_time_spans(combined_sets_check['time'], 
-                                                      combined_sets_check['warning_high_violation'])
-        activesets = [combined_sets_check['active_set_ids'][a] for a,b in indexbounds]
-        limitvals = [combined_sets_check['warning_high_limit'][a] for a,b in indexbounds]
-        violation_dict.update({'warning_high': {'timespans':timebounds, 'activesets':activesets, 'limits':limitvals}})
-        violation_data = get_max_violation_data(msid, timebounds)
-        violation_dict['warning_high'].update(violation_data)
-        violation_dict['any'] = True
-
-    violation_dict.update({'type':'limit'})
-
-    return violation_dict
 
 #-------------------------------------------------------------------------------------------------
 # Code for checking expected states
@@ -664,15 +638,25 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
     Violations are flagged as True. Time values are returned in the combined_sets_check dictionary.
     """
 
+
     def combine_state_checks(all_sets_check):
 
         all_sets_check_keys = all_sets_check.keys()
         currentset = all_sets_check[all_sets_check_keys.pop(0)]
-        es = currentset['expst']
 
+        # es is the boolean array where true represents where violations occur
+        es = currentset['expst_bool']
+
+        # eslim contains expected state strings where this set is enabled and relevant
         eslim = currentset['expst_limit']
 
-        setid = np.zeros(len(es)) - 1
+        # esobs contains observed unexpected states where violations occur
+        esobs = currentset['unexpst_observed']
+
+        # Mark where each set is active. Start off by creating an array the same length as es and
+        # setting each value to -1. Then mark all set=0 points to zero; this will be all points
+        # for most state based msids.
+        setid = np.zeros(len(es), dtype=np.int8) - 1
         ind = np.array([True if len(s) > 0 else False for s in eslim])
         setid[ind] = 0
 
@@ -680,12 +664,14 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
             currentset = all_sets_check[setnum]
             ind = np.array([True if len(s) > 0 else False for s in eslim])
 
-            es = es | currentset['expst']
+            es = es | currentset['expst_bool']
             eslim[ind] = currentset['expst_limit'][ind]
+            esobs[ind] = currentset['unexpst_observed'][ind]
 
             setid[ind] = setnum
 
-        return {'expected_state_violation':es, 'expected_state':eslim, 'active_set_ids':setid}
+        return {'expected_state_violation':es, 'expected_state':eslim, 'observed_state':esobs,
+                'active_set_ids':setid}
 
     def check_state_set(msid, limdict, setnum, data):
         mlimsws = limdict['limsets'][setnum]['mlimsw']
@@ -711,7 +697,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
                 mask = mask_switch | mask
 
         check = {}
-        check['expst'], check['expst_limit'] = check_state(msid, limdict, setnum, data, mask)
+        check['expst_bool'], check['expst_limit'], check['unexpst_observed'] = check_state(msid, limdict, setnum, data, mask)
 
         return check
 
@@ -752,7 +738,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         # Generate boolean array where True marks where a violation occurs
         limcheck = vals_numeric != intlim_numeric
 
-        # Make sure violations are not reported when this set was disabled
+        # Make sure violations are not reported when this set was disabled (i.e. mlmenable 0)
         f = interpolate.interp1d(tlim, enab, kind='zero', bounds_error=False, fill_value=np.nan)
         enabled = f(data.times) == 1
         limcheck = limcheck & enabled
@@ -770,20 +756,43 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         intlim_char[~enabled] = ''
         intlim_char[~mask] = ''
 
-        return limcheck, intlim_char
+        # Generate an array of observed violating states
+        vals_char = np.array(['']*len(data[msid].vals), dtype='S8')
+        vals_char[limcheck] = data[msid].vals[limcheck]
 
+        # Recap, all three returned arrays are of the same length. The presence of empty strings
+        # is relied upon later when combining sets to determine where each set is relevant.
+        #
+        # limcheck = boolean array where true = violation
+        # intlim_char = string array where non-empty strings are expected states
+        # vals_char = string array where non-empty strings are unexpected states during violations
 
-    def get_observed_violation_data(msid, spans):
-        ''' Retrieve detailed data during violation time spans. '''
-        violation_data = {'extrema':[]}
-        for start, stop in spans:
-            data = fetch.Msid(msid, start, stop, stat=None)
-            extrema = np.array([s.lower() for s in np.unique(data.vals)])
-            violation_data['extrema'].append(extrema)
-        return violation_data
+        return limcheck, intlim_char, vals_char
 
+    def process_combined_state_checks(times, esobs, eslim, actid):
 
+        # Group violations by observed value, remember that the expected state can also change in
+        # the middle of a violation as well, this also means the acive set id can also change.
+        grouped_consec_states = [(k, len(list(g))) for k, g in groupby(esobs)]
+        ends = np.cumsum([x[1] for x in grouped_consec_states])
+        starts = np.concatenate(([0,], ends[:-1]))
 
+        if ends[-1] == len(ends):
+            ends = ends[:-1]
+            starts = starts[:-1]
+
+        # Note that empty strings are one of the items that are "grouped" by groupby above, this
+        # is why the "if len(esobs) > 0" is included below.
+        returnlist = []
+        for s, e in zip(starts, ends):
+            if len(esobs[s]) > 0:
+                lims = np.array([k for k, g in groupby(eslim[s:e])])
+                actids = np.array([k for k, g in groupby(actid[s:e])])
+                returnlist.append((times[s:e], esobs[s:e], lims, actids, 'state'))
+
+                # return [(esobs[s], eslim[s], times[s], times[e], actid[s], 'expst') for s, e
+                #         in zip(starts, ends) if len(esobs[s]) > 0]
+        return returnlist
 
     # MSID names should be in lower case
     msid = msid.lower()
@@ -823,33 +832,16 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
 
     # Compile the results for each set into one (time, boolean).
     combined_sets_check = combine_state_checks(all_sets_check)
-    combined_sets_check['time'] = data.times
 
     # Produce the final dictionary to return only the time spans where violations occur
-    violation_dict = {'any':False}
+    # violation_dict = {'any':False}
 
-    # Note below that only the first value for active_set_ids and limits are returned. This could
-    # be changed at some point in the future, however it is rare that a set id or limit will
-    # change during a limit violation.
+    # Produce a list of tuples, where each tuple corresponds to a single violation
     if any(combined_sets_check['expected_state_violation']):
-        timebounds, indexbounds = find_violation_time_spans(combined_sets_check['time'], 
-                                                      combined_sets_check['expected_state_violation'])
-        activesets = [combined_sets_check['active_set_ids'][a] for a,b in indexbounds]
-        limitvals = [combined_sets_check['expected_state'][a] for a,b in indexbounds]
-        violation_data = get_observed_violation_data(msid, timebounds)
-        violation_dict.update(violation_data)
-        violation_dict.update({'timespans':timebounds, 'activesets':activesets, 'limits':limitvals})
-        violation_dict['any'] = True
-    violation_dict.update({'type':'expst'})
 
-    return violation_dict
-
-
-
-
-
-
-
-
-
+        return process_combined_state_checks(data.times, 
+            combined_sets_check['observed_state'], combined_sets_check['expected_state'],
+            combined_sets_check['active_set_ids'])
+    else:
+        return []
 
