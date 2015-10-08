@@ -289,7 +289,7 @@ def get_limits(msid):
     db = open_sqlite_file()
     cursor = db.cursor()
     cursor.execute("""SELECT a.msid, a.setkey, a.datesec, a.mlmenable, a.default_set, a.switchstate, a.mlimsw, 
-                      a.caution_high, a.caution_low, a.warning_high, a.warning_low 
+                      a.caution_high, a.caution_low, a.warning_high, a.warning_low, a.mlmtol 
                       FROM limits AS a WHERE a.msid=? """, [msid.lower(), ])
     current_limits = cursor.fetchall()
     db.close()
@@ -301,7 +301,7 @@ def get_limits(msid):
         if setnum not in limdict['limsets'].keys():
             limdict['limsets'][row[1]] = {'switchstate': [], 'mlmenable': [], 'times': [],
                                           'caution_high': [], 'caution_low': [], 'warning_low': [],
-                                          'warning_high': [], 'mlimsw': [], 'default_set': []}
+                                          'warning_high': [], 'mlimsw': [], 'default_set': [], 'mlmtol':[]}
 
         limdict['limsets'][setnum]['switchstate'].append(row[5])
         limdict['limsets'][setnum]['mlmenable'].append(row[3])
@@ -312,6 +312,7 @@ def get_limits(msid):
         limdict['limsets'][setnum]['warning_low'].append(row[10])
         limdict['limsets'][setnum]['mlimsw'].append(row[6])
         limdict['limsets'][setnum]['default_set'].append(row[4])
+        limdict['limsets'][setnum]['mlmtol'].append(row[11])
 
     # Append data for current time + 24 hours to avoid interpolation errors
     #
@@ -332,6 +333,8 @@ def get_limits(msid):
             limdict['limsets'][setnum]['default_set'][-1])
         limdict['limsets'][setnum]['switchstate'].append(
             limdict['limsets'][setnum]['switchstate'][-1])
+        limdict['limsets'][setnum]['mlmtol'].append(
+            limdict['limsets'][setnum]['mlmtol'][-1])
 
     return limdict
 
@@ -439,10 +442,6 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
                 mask_switch = mask_switch & time_ind
                 mask = mask_switch | mask
 
-
-
-
-
         # Check all data for current msid against all possible limit violations.
         check = {}
         for limtype in ['warning_high', 'caution_high', 'caution_low', 'warning_low']:
@@ -465,6 +464,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         tlim = limdict['limsets'][setnum]['times']
         vlim = limdict['limsets'][setnum][limtype]
         enab = limdict['limsets'][setnum]['mlmenable']
+        tol = limdict['limsets'][setnum]['mlmtol']
 
         # Get the history of limits interpolated noto telemetry times.
         f = interpolate.interp1d(tlim, vlim, kind='zero', bounds_error=False, fill_value=np.nan)
@@ -484,6 +484,29 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         # Make sure violations are not reported when this set is not active
         limcheck[~mask] = False
 
+        # Remove toggles occurring for mlmtol or less
+        f = interpolate.interp1d(tlim, tol, kind='zero', bounds_error=False, fill_value=np.nan)
+        inttol = f(data.times)
+        
+        # Group Trues and Falses and include the length of each group
+        g = [(c, len(list(d))) for c, d in groupby(limcheck)]
+
+        # Identify the indices of the end of each group
+        ends = np.cumsum([x[1] for x in g])
+
+        # Identify the indices of the start of each group (end of one group is start of another)
+        starts = np.concatenate(([0,], ends[:-1]))
+
+        # The tolerance at the beginning of each group is used to determine if that group should
+        # be eliminated
+        tols = inttol[starts]
+
+        # Set all groups with a tolerance at the start of each violation of equal to or less than
+        # the value set by MLMTOL to False (i.e. no violation)
+        for gval, start, end, tolval in zip(g, starts, ends, tols):
+            if (gval[0] == True) & (gval[1] <= tolval):
+                limcheck[start:end] = False
+
         # Flag durations when this set is not enabled or active with nans.
         intlim[~enabled] = np.nan
         intlim[~mask] = np.nan
@@ -492,6 +515,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         vals = np.empty(len(data.times), dtype=np.float64)
         vals[:] = np.nan
         vals[limcheck] = data[msid].vals[limcheck]
+
 
         # Recap, all three returned arrays are of the same length. The presence of nans
         # is relied upon later when combining sets to determine where each set is relevant.
@@ -552,7 +576,6 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         data[mlimsw_msid].vals = np.array([s.strip() for s in data[mlimsw_msid].vals])
 
 
-
     # Calculate violations for all limit types (caution high, etc.), for all sets.
     # Violations are only indicated where the set is valid as indicated by MLIMSW, if applicable.
     all_sets_check = {}
@@ -592,7 +615,7 @@ def get_states(msid):
     db = open_sqlite_file()
     cursor = db.cursor()
     cursor.execute("""SELECT a.msid, a.setkey, a.datesec, a.mlmenable, a.default_set, 
-                          a.switchstate, a.mlimsw, a.expst FROM expected_states AS a WHERE a.msid=? """,
+                          a.switchstate, a.mlimsw, a.expst, a.mlmtol FROM expected_states AS a WHERE a.msid=? """,
                    [msid.lower(), ])
     current_limits = cursor.fetchall()
 
@@ -602,7 +625,7 @@ def get_states(msid):
         setnum = row[1]
         if setnum not in limdict['limsets'].keys():
             limdict['limsets'][row[1]] = {'switchstate': [], 'mlmenable': [], 'times': [],
-                                          'expst': [], 'mlimsw': [], 'default_set': []}
+                                          'expst': [], 'mlimsw': [], 'default_set': [], 'mlmtol':[]}
 
         limdict['limsets'][setnum]['switchstate'].append(row[5])
         limdict['limsets'][setnum]['mlmenable'].append(row[3])
@@ -610,6 +633,7 @@ def get_states(msid):
         limdict['limsets'][setnum]['expst'].append(row[7])
         limdict['limsets'][setnum]['mlimsw'].append(row[6])
         limdict['limsets'][setnum]['default_set'].append(row[4])
+        limdict['limsets'][setnum]['mlmtol'].append(row[8])
 
     # Append data for current time + 24 hours to avoid interpolation errors
     for setnum in limdict['limsets'].keys():
@@ -621,6 +645,8 @@ def get_states(msid):
             limdict['limsets'][setnum]['default_set'][-1])
         limdict['limsets'][setnum]['switchstate'].append(
             limdict['limsets'][setnum]['switchstate'][-1])
+        limdict['limsets'][setnum]['mlmtol'].append(
+            limdict['limsets'][setnum]['mlmtol'][-1])
 
     return limdict
 
@@ -712,6 +738,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         tlim = limdict['limsets'][setnum]['times']
         vlim = limdict['limsets'][setnum]['expst']
         enab = limdict['limsets'][setnum]['mlmenable']
+        tol = limdict['limsets'][setnum]['mlmtol']
 
         # Determine the list of unique states in current expst list
         unique_states = np.unique(vlim)
@@ -746,6 +773,29 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         # "mask" tells us when this set is valid, make sure times when this set is not valid do not
         # report a violation
         limcheck[~mask] = False
+
+        # Remove toggles occurring for mlmtol or less
+        f = interpolate.interp1d(tlim, tol, kind='zero', bounds_error=False, fill_value=np.nan)
+        inttol = f(data.times)
+        
+        # Group Trues and Falses and include the length of each group
+        g = [(c, len(list(d))) for c, d in groupby(limcheck)]
+
+        # Identify the indices of the end of each group
+        ends = np.cumsum([x[1] for x in g])
+
+        # Identify the indices of the start of each group (end of one group is start of another)
+        starts = np.concatenate(([0,], ends[:-1]))
+
+        # The tolerance at the beginning of each group is used to determine if that group should
+        # be eliminated
+        tols = inttol[starts]
+
+        # Set all groups with a tolerance at the start of each violation of equal to or less than
+        # the value set by MLMTOL to False (i.e. no violation)
+        for gval, start, end, tolval in zip(g, starts, ends, tols):
+            if (gval[0] == True) & (gval[1] <= tolval):
+                limcheck[start:end] = False
 
         # Generate a list of the expected states in character form
         intlim_char = np.array([''] * len(data.times), dtype='S8')
