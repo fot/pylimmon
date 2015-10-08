@@ -735,10 +735,10 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         """
 
         # Get the history of expected states
-        tlim = limdict['limsets'][setnum]['times']
-        vlim = limdict['limsets'][setnum]['expst']
-        enab = limdict['limsets'][setnum]['mlmenable']
-        tol = limdict['limsets'][setnum]['mlmtol']
+        tlim = np.array(limdict['limsets'][setnum]['times'])
+        vlim = np.array(limdict['limsets'][setnum]['expst'])
+        enab = np.array(limdict['limsets'][setnum]['mlmenable'])
+        tol = np.array(limdict['limsets'][setnum]['mlmtol'])
 
         # Determine the list of unique states in current expst list
         unique_states = np.unique(vlim)
