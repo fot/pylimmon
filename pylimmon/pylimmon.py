@@ -11,7 +11,7 @@ home = expanduser("~")
 from Chandra.Time import DateTime
 from Ska.engarchive import fetch_eng as fetch
 
-import glimmondb as gdb
+from glimmondb import *
 
 axafauto_url = 'http://occweb.cfa.harvard.edu/occweb/FOT/engineering/thermal/AXAFAUTO_RSYNC/'
 
@@ -241,7 +241,7 @@ def get_mission_safety_limits(msid, tdbs=None):
 
     if not tdbs:
         tdbs = open_tdb_file()
-    tdbversions = gdb.get_tdb(return_dates=True)
+    tdbversions = get_tdb(return_dates=True)
     allsafetylimits = {'warning_low': [], 'caution_low': [], 'caution_high': [],
                        'warning_high': [], 'times': []}
     for ver in np.sort(tdbversions.keys()):
