@@ -44,26 +44,21 @@
 
 import sqlite3
 import cPickle as pickle
-import json
 import logging
 reload(logging)  # avoids issue with ipython notebook
 import shutil
 import errno
-import sys
 from os.path import join as pathjoin
-from os.path import expanduser, abspath, pardir
-from os import getcwd
+from os import getenv, getcwd
 import numpy as np
 import re
 
 from Chandra.Time import DateTime
 
-# parentdir = abspath(pathjoin(getcwd(), pardir))
-home = expanduser("~")
-DBDIR = abspath(pathjoin(home, 'AXAFAUTO/G_LIMMON_Archive/'))
-TDBDIR = abspath(pathjoin(home, 'AXAFAUTO/TDB_Archive/'))
+DBDIR = pathjoin(getenv('SKA_DATA'), 'glimmon_archive/') or getenv('GLIMMONDATA') or getcwd()
+TDBDIR = pathjoin(getenv('SKA_DATA'), 'fot_tdb_archive/') or getenv('TBDDATA') or getcwd()
 
-logfile = pathjoin(DBDIR, 'DB_Commit.log')
+logfile = pathjoin(, 'glimmon_archive/DB_Commit.log')
 logging.basicConfig(filename=logfile, level=logging.DEBUG,
                     format='%(asctime)s %(message)s')
 
