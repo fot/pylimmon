@@ -3,11 +3,27 @@ import sqlite3
 from itertools import groupby
 import cPickle as pickle
 from scipy import interpolate
+from os.path import join as pathjoin
+from os import getenv, getcwd
 
 from Chandra.Time import DateTime
 from Ska.engarchive import fetch_eng as fetch
 
-from glimmondb import *
+import sys
+from os.path import expanduser
+home = expanduser("~")
+sys.path.append(home + '/AXAFLIB/glimmondb/')
+from glimmondb import get_tdb as get_tdb_dates
+
+if getenv('GLIMMONDATA') and getenv('TBDDATA'):
+    DBDIR = getenv('GLIMMONDATA')
+    TDBDIR = getenv('TBDDATA')
+elif getenv('SKA_DATA'):
+    DBDIR = pathjoin(getenv('SKA_DATA'), 'glimmon_archive/')
+    TDBDIR = pathjoin(getenv('SKA_DATA'), 'fot_tdb_archive/')
+else:
+    DBDIR = getcwd()
+    TDBDIR = getcwd()
 
 
 def is_not_nan(arg):
@@ -227,7 +243,7 @@ def get_mission_safety_limits(msid, tdbs=None):
 
     if not tdbs:
         tdbs = open_tdb_file()
-    tdbversions = get_tdb(return_dates=True)
+    tdbversions = get_tdb_dates(return_dates=True)
     allsafetylimits = {'warning_low': [], 'caution_low': [], 'caution_high': [],
                        'warning_high': [], 'times': []}
     for ver in np.sort(tdbversions.keys()):
