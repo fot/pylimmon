@@ -1,19 +1,29 @@
-import pickle
 import numpy as np
-import re
 import sqlite3
 from itertools import groupby
 import cPickle as pickle
 from scipy import interpolate
-from os.path import expanduser
-home = expanduser("~")
+from os.path import join as pathjoin
+from os import getenv, getcwd
 
 from Chandra.Time import DateTime
 from Ska.engarchive import fetch_eng as fetch
 
-from glimmondb import *
+import sys
+from os.path import expanduser
+home = expanduser("~")
+sys.path.append(home + '/AXAFLIB/glimmondb/')
+from glimmondb import get_tdb as get_tdb_dates
 
-axafauto_url = 'http://occweb.cfa.harvard.edu/occweb/FOT/engineering/thermal/AXAFAUTO_RSYNC/'
+if getenv('GLIMMONDATA') and getenv('TBDDATA'):
+    DBDIR = getenv('GLIMMONDATA')
+    TDBDIR = getenv('TBDDATA')
+elif getenv('SKA_DATA'):
+    DBDIR = pathjoin(getenv('SKA_DATA'), 'glimmon_archive/')
+    TDBDIR = pathjoin(getenv('SKA_DATA'), 'fot_tdb_archive/')
+else:
+    DBDIR = getcwd()
+    TDBDIR = getcwd()
 
 
 def is_not_nan(arg):
@@ -25,19 +35,11 @@ def is_not_nan(arg):
 
 
 def open_sqlite_file():
-    try:
-        db = sqlite3.connect(axafauto_url + 'G_LIMMON_Archive/glimmondb.sqlite3')
-    except:
-        db = sqlite3.connect(home + '/AXAFAUTO/G_LIMMON_Archive/glimmondb.sqlite3')
-    return db
+    return sqlite3.connect(pathjoin(DBDIR, 'glimmondb.sqlite3'))
 
 
 def open_tdb_file():
-    try:
-        tdbs = pickle.load(open(axafauto_url + 'TDB_Archive/tdb_all.pkl', 'r'))
-    except:
-        tdbs = pickle.load(open(home + '/AXAFAUTO/TDB_Archive/tdb_all.pkl', 'r'))
-    return tdbs
+    return pickle.load(open(pathjoin(TDBDIR, 'tdb_all.pkl'), 'r'))
 
 
 def get_tdb_limits(msid, dbver='p013', tdbs=None):
@@ -241,7 +243,7 @@ def get_mission_safety_limits(msid, tdbs=None):
 
     if not tdbs:
         tdbs = open_tdb_file()
-    tdbversions = get_tdb(return_dates=True)
+    tdbversions = get_tdb_dates(return_dates=True)
     allsafetylimits = {'warning_low': [], 'caution_low': [], 'caution_high': [],
                        'warning_high': [], 'times': []}
     for ver in np.sort(tdbversions.keys()):
@@ -275,11 +277,6 @@ def get_mission_safety_limits(msid, tdbs=None):
                 np.nanmin((t, a)) for t, a in zip(trendinglimits[kind], allsafetylimits[kind])]
 
     allsafetylimits['times'] = list(tsum)
-
-    # Repeat the last limit for the current date to make plotting easier
-    # for key in allsafetylimits.keys():
-    #     allsafetylimits[key].append(allsafetylimits[key][-1])
-    # allsafetylimits['times'][-1] = DateTime().secs
 
     return allsafetylimits
 
@@ -542,8 +539,6 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
                 actids = np.array([k for k, g in groupby(actid[s:e])])
                 returnlist.append((times[s:e], obs[s:e], lims, actids, limtype))
 
-        # return [(times[s], times[e], obs[s:e], lims, actid, 'limit') for s, e
-        #         in zip(starts, ends) if len(obs[s]) > 0]
         return returnlist
 
 
@@ -840,8 +835,6 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
                 actids = np.array([k for k, g in groupby(actid[s:e])])
                 returnlist.append((times[s:e], esobs[s:e], lims, actids, 'state'))
 
-                # return [(esobs[s], eslim[s], times[s], times[e], actid[s], 'expst') for s, e
-                #         in zip(starts, ends) if len(esobs[s]) > 0]
         return returnlist
 
     # MSID names should be in lower case
