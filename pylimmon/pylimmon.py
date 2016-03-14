@@ -42,7 +42,7 @@ def open_tdb_file():
     return pickle.load(open(pathjoin(TDBDIR, 'tdb_all.pkl'), 'r'))
 
 
-def get_tdb_limits(msid, dbver='p013', tdbs=None):
+def get_tdb_limits(msid, dbver=None, tdbs=None):
     """ Retrieve the TDB limits from a json version of the MS Access database.
 
     :param msid: String containing the mnemonic name, must correspond to a numeric limit set
@@ -75,6 +75,10 @@ def get_tdb_limits(msid, dbver='p013', tdbs=None):
             return tdbs[dbver.lower()]
 
     msid = msid.lower().strip()
+
+    if not dbver:
+        tdbversions = get_tdb_dates(return_dates=True)
+        dbver = max(tdbversions.keys())
 
     try:
         tdb = get_tdb(dbver, tdbs)
