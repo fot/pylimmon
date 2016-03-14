@@ -284,6 +284,19 @@ def get_mission_safety_limits(msid, tdbs=None):
 
     return allsafetylimits
 
+def get_latest_glimmon_limits(msid):
+    ''' Get default limit set
+
+    This is intended to replace the old gretafun.getGLIMMONLimits()
+    '''
+    limdict = get_limits(msid)
+
+    lims = {}
+    for key in limdict['limsets'][0].keys():
+        lims[key] = limdict['limsets'][0][key][-1]
+
+    return lims
+
 
 def get_limits(msid):
 
