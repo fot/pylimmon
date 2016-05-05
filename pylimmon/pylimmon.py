@@ -289,11 +289,17 @@ def get_latest_glimmon_limits(msid):
 
     This is intended to replace the old gretafun.getGLIMMONLimits()
     '''
-    limdict = get_limits(msid)
 
-    lims = {}
-    for key in limdict['limsets'][0].keys():
-        lims[key] = limdict['limsets'][0][key][-1]
+    try:
+        limdict = get_limits(msid)
+
+        lims = {}
+        for key in limdict['limsets'][0].keys():
+            lims[key] = limdict['limsets'][0][key][-1]
+    except IndexError:
+        # An IndexError will be thrown when the "current_limits" datastructure is accessed if
+        # there are no limits for this msid.
+        lims=None
 
     return lims
 
