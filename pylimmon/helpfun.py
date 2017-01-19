@@ -8,7 +8,7 @@ from Ska.engarchive import fetch_eng as fetch
 os.environ["SKA_DATA"] = "/proj/sot/ska/data"
 home = os.path.expanduser("~")
 sys.path.append(home + '/AXAFLIB/pylimmon/')
-import pylimmon
+from . import pylimmon
 
 
 
@@ -33,7 +33,7 @@ def check_violations(thermdict, t1, t2):
     allviolations = {}
     missingmsids = []
     checkedmsids = []
-    for key in thermdict.keys():
+    for key in list(thermdict.keys()):
         greta_msid = thermdict[key]['greta_msid']
         try:
             if thermdict[key]['type'] == 'limit':
@@ -51,7 +51,7 @@ def check_violations(thermdict, t1, t2):
                 allviolations[key] = process_violations(key, violations)
 
         except IndexError:
-            print('{} not in DB'.format(key))
+            print(('{} not in DB'.format(key)))
             missingmsids.append(key)
 
     return allviolations, missingmsids, checkedmsids
@@ -103,7 +103,7 @@ def process_violations(msid, violations):
     for v in violations:
         limtype = v[-1]
         if 'high' in limtype.lower():
-            if limtype not in violation_dict.keys():
+            if limtype not in list(violation_dict.keys()):
                 violation_dict.update({limtype: {'starttime': v[0][0], 'stoptime': v[0][-1],
                                                  'num_excursions': 1, 'extrema': np.max(v[1]),
                                                  'limit': v[2][0], 'setid': v[3][0],
@@ -121,7 +121,7 @@ def process_violations(msid, violations):
                     limtype]['duration'] + v[0][-1] - v[0][0]
 
         elif 'low' in limtype.lower():
-            if limtype not in violation_dict.keys():
+            if limtype not in list(violation_dict.keys()):
                 violation_dict.update({limtype: {'starttime': v[0][0], 'stoptime': v[0][-1],
                                                  'num_excursions': 1, 'extrema': np.min(v[1]),
                                                  'limit': v[2][0], 'setid': v[3][0],
@@ -139,7 +139,7 @@ def process_violations(msid, violations):
                     limtype]['duration'] + v[0][-1] - v[0][0]
 
         elif 'state' in limtype.lower():
-            if limtype not in violation_dict.keys():
+            if limtype not in list(violation_dict.keys()):
                 violation_dict.update({limtype: {'starttime': v[0][0], 'stoptime': v[0][-1],
                                                  'num_excursions': 1, 'extrema': v[1][0],
                                                  'limit': v[2][0], 'setid': v[3][0],
@@ -155,7 +155,7 @@ def process_violations(msid, violations):
                     limtype]['duration'] + v[0][-1] - v[0][0]
 
     for limittype in ['warning_low', 'caution_low', 'caution_high', 'warning_high', 'state']:
-        if limittype in violation_dict.keys():
+        if limittype in list(violation_dict.keys()):
             violation_dict[limittype]['duration'] = violation_dict[limittype]['duration'] / 3600.
             violation_dict[limittype]['description'] = desc
             violation_dict[limittype]['startdate'] = DateTime(
