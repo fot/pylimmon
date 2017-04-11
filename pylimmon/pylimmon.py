@@ -126,9 +126,7 @@ def find_violation_time_spans(times, booldata):
 
     if idata[-1] == 1:
         stops.insert(-1, True)
-    else:
-        stops.insert
-    
+
     startinds = np.where(starts)[0]
     stopinds = np.where(stops)[0]
     starts = times[startinds]
@@ -471,8 +469,6 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
             check[boolname], check[limitname], check[observedname] = check_limit(
                 msid, limdict, setnum, data, mask, limtype)
 
-
-
         return check
 
     def check_limit(msid, limdict, setnum, data, mask, limtype):
@@ -485,6 +481,12 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         vlim = limdict['limsets'][setnum][limtype]
         enab = limdict['limsets'][setnum]['mlmenable']
         tol = limdict['limsets'][setnum]['mlmtol']
+
+        # Force the tolerance to be 0 for derived parameters. This avoids a known issue with telescope
+        # derived parameters resulting from different data rates compared to GRETA, at the risk of
+        # creating further issues WRT false violations.
+        if 'DP_' in data[msid].MSID:
+            tol = [0, ] * len(tol)
 
         # Get the history of limits interpolated noto telemetry times.
         f = interpolate.interp1d(tlim, vlim, kind='zero', bounds_error=False, fill_value=np.nan)
@@ -535,7 +537,6 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         vals = np.empty(len(data.times), dtype=np.float64)
         vals[:] = np.nan
         vals[limcheck] = data[msid].vals[limcheck]
-
 
         # Recap, all three returned arrays are of the same length. The presence of nans
         # is relied upon later when combining sets to determine where each set is relevant.
@@ -593,13 +594,11 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
     for mlimsw_msid in mlimsw:
         data[mlimsw_msid].vals = np.array([s.strip() for s in data[mlimsw_msid].vals])
 
-
     # Calculate violations for all limit types (caution high, etc.), for all sets.
     # Violations are only indicated where the set is valid as indicated by MLIMSW, if applicable.
     all_sets_check = {}
     for setnum in list(limdict['limsets'].keys()):
         all_sets_check[setnum] = check_limit_set(msid, limdict, setnum, data)
-
 
     # Return boolean arrays for each limit type after compiling the results for each limit set.
     combined_sets_check = combine_limit_checks(all_sets_check)
