@@ -39,7 +39,7 @@ def open_sqlite_file():
 
 
 def open_tdb_file():
-    return pickle.load(open(pathjoin(TDBDIR, 'tdb_all.pkl'), 'r'))
+    return pickle.load(open(pathjoin(TDBDIR, 'tdb_all.pkl'), 'rb'))
 
 
 def get_tdb_limits(msid, dbver=None, tdbs=None):
@@ -80,8 +80,9 @@ def get_tdb_limits(msid, dbver=None, tdbs=None):
         tdbversions = get_tdb_dates(return_dates=True)
         dbver = max(tdbversions.keys())
 
-    try:
-        tdb = get_tdb(dbver, tdbs)
+    tdb = get_tdb(dbver, tdbs)
+
+    if msid in tdb.keys():
 
         limits = assign_sets(tdb[msid]['limit'])
         limits['type'] = 'limit'
@@ -105,8 +106,8 @@ def get_tdb_limits(msid, dbver=None, tdbs=None):
         # Future versions, rewritten for web applications will not have this limitation.
         tdblimits = limits[limits['default']]
 
-    except KeyError:
-        print(('{} does not have limits in the TDB'.format(msid.upper())))
+    else:
+        print(('{} does not have limits in TDB version {}'.format(msid.upper(), dbver.upper())))
         tdblimits = {}
 
     return tdblimits
