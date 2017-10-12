@@ -90,7 +90,7 @@ The resulting datastructure will have the following format:
 
 import os
 import pandas
-import cPickle as pickle
+import pickle as pickle
 import json
 
 
@@ -110,17 +110,17 @@ def assignsetvals(db, table, field, sequence=False):
         msid = row[0]
         setnum = int(row[1])
 
-        if not db[msid].has_key(field):
+        if field not in db[msid]:
             db[msid].update({field:{}})
 
         if not sequence:
-            db[msid][field][setnum] = dict(zip(table.columns[2:], row[2:]))
+            db[msid][field][setnum] = dict(list(zip(table.columns[2:], row[2:])))
         else:
             seq = int(row[2])
-            if not db[msid][field].has_key(setnum):
+            if setnum not in db[msid][field]:
                 db[msid][field].update({setnum:{}})
 
-            db[msid][field][setnum][seq] = dict(zip(table.columns[3:], row[3:]))
+            db[msid][field][setnum][seq] = dict(list(zip(table.columns[3:], row[3:])))
 
 
 def readdb(rootdir):
@@ -156,7 +156,7 @@ def processdb(tdbframes):
     """
     tdb = {}
     for row in tdbframes['tdbmsid'].values:
-        tdb.update({row[0]:dict(zip(tdbframes['tdbmsid'].columns[1:], row[1:]))})
+        tdb.update({row[0]:dict(list(zip(tdbframes['tdbmsid'].columns[1:], row[1:])))})
     assignsetvals(tdb, tdbframes['tdblimit'], 'limit')
     assignsetvals(tdb, tdbframes['tdblimswitch'], 'lim_switch')
     assignsetvals(tdb, tdbframes['tdbpointpair'], 'point_pair', sequence=True)

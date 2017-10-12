@@ -1,7 +1,7 @@
 import numpy as np
 import sqlite3
 from itertools import groupby
-import cPickle as pickle
+import pickle as pickle
 from scipy import interpolate
 from os.path import join as pathjoin
 from os import getenv, getcwd
@@ -39,7 +39,7 @@ def open_sqlite_file():
 
 
 def open_tdb_file():
-    return pickle.load(open(pathjoin(TDBDIR, 'tdb_all.pkl'), 'r'))
+    return pickle.load(open(pathjoin(TDBDIR, 'tdb_all.pkl'), 'rb'))
 
 
 def get_tdb_limits(msid, dbver=None, tdbs=None):
@@ -61,7 +61,7 @@ def get_tdb_limits(msid, dbver=None, tdbs=None):
         This also adds a list of set numbers.
         """
         limits = {'setkeys': []}
-        for setnum in dbsets.keys():
+        for setnum in list(dbsets.keys()):
             setnumint = int(setnum) - 1
             limits.update({setnumint: dbsets[setnum]})
             limits['setkeys'].append(setnumint)
@@ -80,8 +80,9 @@ def get_tdb_limits(msid, dbver=None, tdbs=None):
         tdbversions = get_tdb_dates(return_dates=True)
         dbver = max(tdbversions.keys())
 
-    try:
-        tdb = get_tdb(dbver, tdbs)
+    tdb = get_tdb(dbver, tdbs)
+
+    if msid in tdb.keys():
 
         limits = assign_sets(tdb[msid]['limit'])
         limits['type'] = 'limit'
@@ -97,7 +98,7 @@ def get_tdb_limits(msid, dbver=None, tdbs=None):
 
         # Fill in switchstate info if present
         for setkey in limits['setkeys']:
-            if 'state_code' in limits[setkey].keys():
+            if 'state_code' in list(limits[setkey].keys()):
                 limits[setkey]['switchstate'] = limits[setkey]['state_code']
                 _ = limits[setkey].pop('state_code')
 
@@ -105,8 +106,8 @@ def get_tdb_limits(msid, dbver=None, tdbs=None):
         # Future versions, rewritten for web applications will not have this limitation.
         tdblimits = limits[limits['default']]
 
-    except KeyError:
-        print('{} does not have limits in the TDB'.format(msid.upper()))
+    else:
+        print(('{} does not have limits in TDB version {}'.format(msid.upper(), dbver.upper())))
         tdblimits = {}
 
     return tdblimits
@@ -126,15 +127,13 @@ def find_violation_time_spans(times, booldata):
 
     if idata[-1] == 1:
         stops.insert(-1, True)
-    else:
-        stops.insert
-    
+
     startinds = np.where(starts)[0]
     stopinds = np.where(stops)[0]
     starts = times[startinds]
     stops = times[stopinds]
-    timebounds = zip(starts, stops)
-    indexbounds = zip(startinds, stopinds)
+    timebounds = list(zip(starts, stops))
+    indexbounds = list(zip(startinds, stopinds))
 
     # activesets = [np.unique(activesetids[a:b]) for a,b in zip(startinds, stopinds)]
 
@@ -189,8 +188,8 @@ def get_safety_limits(msid):
         glimits = {'warning_low': lims[3], 'caution_low': lims[4], 'caution_high': lims[5],
                    'warning_high': lims[6]}
     except:
-        print('{} not in G_LIMMON Database, message generated in pylimmon.get_safety_limits()'
-              .format(msid.upper()))
+        print(('{} not in G_LIMMON Database, message generated in pylimmon.get_safety_limits()'
+              .format(msid.upper())))
         glimits = {}
 
     # If there are no limits in the TDB but there are in GLIMMON, use the
@@ -204,19 +203,19 @@ def get_safety_limits(msid):
 
         if glimits['warning_low'] < safetylimits['warning_low']:
             safetylimits['warning_low'] = glimits['warning_low']
-            print('Updated warning low safety limit for %s' % msid)
+            print(('Updated warning low safety limit for %s' % msid))
 
         if glimits['caution_low'] < safetylimits['caution_low']:
             safetylimits['caution_low'] = glimits['caution_low']
-            print('Updated caution low safety limit for %s' % msid)
+            print(('Updated caution low safety limit for %s' % msid))
 
         if glimits['warning_high'] > safetylimits['warning_high']:
             safetylimits['warning_high'] = glimits['warning_high']
-            print('Updated warning high safety limit for %s' % msid)
+            print(('Updated warning high safety limit for %s' % msid))
 
         if glimits['caution_high'] > safetylimits['caution_high']:
             safetylimits['caution_high'] = glimits['caution_high']
-            print('Updated caution high safety limit for %s' % msid)
+            print(('Updated caution high safety limit for %s' % msid))
 
     return safetylimits
 
@@ -250,7 +249,7 @@ def get_mission_safety_limits(msid, tdbs=None):
     tdbversions = get_tdb_dates(return_dates=True)
     allsafetylimits = {'warning_low': [], 'caution_low': [], 'caution_high': [],
                        'warning_high': [], 'times': []}
-    for ver in np.sort(tdbversions.keys()):
+    for ver in np.sort(list(tdbversions.keys())):
         date = tdbversions[ver]
         safetylimits = get_tdb_limits(msid, dbver=ver, tdbs=tdbs)
         if safetylimits:
@@ -264,7 +263,7 @@ def get_mission_safety_limits(msid, tdbs=None):
         return None
 
     # Repeat the last limit to prevent nans from being entered for safety limits when interpolating
-    for key in allsafetylimits.keys():
+    for key in list(allsafetylimits.keys()):
         allsafetylimits[key].append(allsafetylimits[key][-1])
     allsafetylimits['times'][-1] = lastdate
 
@@ -294,7 +293,7 @@ def get_latest_glimmon_limits(msid):
         limdict = get_limits(msid)
 
         lims = {}
-        for key in limdict['limsets'][0].keys():
+        for key in list(limdict['limsets'][0].keys()):
             lims[key] = limdict['limsets'][0][key][-1]
     except IndexError:
         # An IndexError will be thrown when the "current_limits" datastructure is accessed if
@@ -318,7 +317,7 @@ def get_limits(msid):
 
     for row in current_limits:
         setnum = row[1]
-        if setnum not in limdict['limsets'].keys():
+        if setnum not in list(limdict['limsets'].keys()):
             limdict['limsets'][row[1]] = {'switchstate': [], 'mlmenable': [], 'times': [],
                                           'caution_high': [], 'caution_low': [], 'warning_low': [],
                                           'warning_high': [], 'mlimsw': [], 'default_set': [], 'mlmtol':[]}
@@ -337,7 +336,7 @@ def get_limits(msid):
     # Append data for current time + 24 hours to avoid interpolation errors
     #
     # You count on this being done in get_mission_safety_limits()
-    for setnum in limdict['limsets'].keys():
+    for setnum in list(limdict['limsets'].keys()):
         limdict['limsets'][setnum]['times'].append(DateTime().secs + 24 * 3600)
         limdict['limsets'][setnum]['warning_low'].append(
             limdict['limsets'][setnum]['warning_low'][-1])
@@ -375,7 +374,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
 
     def combine_limit_checks(all_sets_check):
 
-        all_sets_check_keys = all_sets_check.keys()
+        all_sets_check_keys = list(all_sets_check.keys())
         currentset = all_sets_check[all_sets_check_keys.pop(0)]
 
         # wh is the boolean array where true represents where violations occur
@@ -448,7 +447,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         mask = np.array([False] * len(data.times))
 
         # [:-1] because the last limit definition is just a copy of the previous definition
-        items = zip(times[:-1], times[1:], mlimsws[:-1], switchstates[:-1], defaults[:-1])
+        items = list(zip(times[:-1], times[1:], mlimsws[:-1], switchstates[:-1], defaults[:-1]))
         for t1, t2, mlimsw, switchstate, default in items:
             ind1 = data.times >= t1
             ind2 = data.times < t2
@@ -471,8 +470,6 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
             check[boolname], check[limitname], check[observedname] = check_limit(
                 msid, limdict, setnum, data, mask, limtype)
 
-
-
         return check
 
     def check_limit(msid, limdict, setnum, data, mask, limtype):
@@ -485,6 +482,12 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         vlim = limdict['limsets'][setnum][limtype]
         enab = limdict['limsets'][setnum]['mlmenable']
         tol = limdict['limsets'][setnum]['mlmtol']
+
+        # Force the tolerance to be 0 for derived parameters. This avoids a known issue with telescope
+        # derived parameters resulting from different data rates compared to GRETA, at the risk of
+        # creating further issues WRT false violations.
+        if 'DP_' in data[msid].MSID:
+            tol = [0, ] * len(tol)
 
         # Get the history of limits interpolated noto telemetry times.
         f = interpolate.interp1d(tlim, vlim, kind='zero', bounds_error=False, fill_value=np.nan)
@@ -536,7 +539,6 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         vals[:] = np.nan
         vals[limcheck] = data[msid].vals[limcheck]
 
-
         # Recap, all three returned arrays are of the same length. The presence of nans
         # is relied upon later when combining sets to determine where each set is relevant.
         #
@@ -577,7 +579,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
     limdict = get_limits(greta_msid.lower())
 
     # Add limit switch msids to msid list
-    mlimsw = np.unique([s for setnum in limdict['limsets'].keys()
+    mlimsw = np.unique([s for setnum in list(limdict['limsets'].keys())
                         for s in limdict['limsets'][setnum]['mlimsw']])
     mlimsw = list(mlimsw)
     if 'none' in mlimsw:
@@ -593,13 +595,11 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
     for mlimsw_msid in mlimsw:
         data[mlimsw_msid].vals = np.array([s.strip() for s in data[mlimsw_msid].vals])
 
-
     # Calculate violations for all limit types (caution high, etc.), for all sets.
     # Violations are only indicated where the set is valid as indicated by MLIMSW, if applicable.
     all_sets_check = {}
-    for setnum in limdict['limsets'].keys():
+    for setnum in list(limdict['limsets'].keys()):
         all_sets_check[setnum] = check_limit_set(msid, limdict, setnum, data)
-
 
     # Return boolean arrays for each limit type after compiling the results for each limit set.
     combined_sets_check = combine_limit_checks(all_sets_check)
@@ -641,7 +641,7 @@ def get_states(msid):
 
     for row in current_limits:
         setnum = row[1]
-        if setnum not in limdict['limsets'].keys():
+        if setnum not in list(limdict['limsets'].keys()):
             limdict['limsets'][row[1]] = {'switchstate': [], 'mlmenable': [], 'times': [],
                                           'expst': [], 'mlimsw': [], 'default_set': [], 'mlmtol':[]}
 
@@ -654,7 +654,7 @@ def get_states(msid):
         limdict['limsets'][setnum]['mlmtol'].append(row[8])
 
     # Append data for current time + 24 hours to avoid interpolation errors
-    for setnum in limdict['limsets'].keys():
+    for setnum in list(limdict['limsets'].keys()):
         limdict['limsets'][setnum]['times'].append(DateTime().secs + 24 * 3600)
         limdict['limsets'][setnum]['expst'].append(limdict['limsets'][setnum]['expst'][-1])
         limdict['limsets'][setnum]['mlmenable'].append(limdict['limsets'][setnum]['mlmenable'][-1])
@@ -685,7 +685,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
 
     def combine_state_checks(all_sets_check):
 
-        all_sets_check_keys = all_sets_check.keys()
+        all_sets_check_keys = list(all_sets_check.keys())
         currentset = all_sets_check[all_sets_check_keys.pop(0)]
 
         # es is the boolean array where true represents where violations occur
@@ -726,7 +726,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         mask = np.array([False] * len(data.times))
 
         # [:-1] because the last limit definition is just a copy of the previous definition
-        items = zip(times[:-1], times[1:], mlimsws[:-1], switchstates[:-1], defaults[:-1])
+        items = list(zip(times[:-1], times[1:], mlimsws[:-1], switchstates[:-1], defaults[:-1]))
         for t1, t2, mlimsw, switchstate, default in items:
             ind1 = data.times >= t1
             ind2 = data.times < t2
@@ -872,7 +872,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
     limdict = get_states(greta_msid.lower())
 
     # Add limit switch msids to msid list
-    mlimsw = np.unique([s for setnum in limdict['limsets'].keys()
+    mlimsw = np.unique([s for setnum in list(limdict['limsets'].keys())
                         for s in limdict['limsets'][setnum]['mlimsw']])
     mlimsw = list(mlimsw)
     if 'none' in mlimsw:
@@ -892,7 +892,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
     # Calculate violations for all sets.
     # Violations are only indicated where the set is valid as indicated by MLIMSW, if applicable.
     all_sets_check = {}
-    for setnum in limdict['limsets'].keys():
+    for setnum in list(limdict['limsets'].keys()):
         all_sets_check[setnum] = check_state_set(limdict['msid'], limdict, setnum, data)
 
 
