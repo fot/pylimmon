@@ -82,7 +82,7 @@ def get_tdb_limits(msid, dbver=None, tdbs=None):
 
     tdb = get_tdb(dbver, tdbs)
 
-    if msid in tdb.keys():
+    if (msid in tdb.keys()) and ('limit' in tdb[msid].keys()):
 
         limits = assign_sets(tdb[msid]['limit'])
         limits['type'] = 'limit'
