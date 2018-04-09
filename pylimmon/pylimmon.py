@@ -590,7 +590,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
 
     # Query data, interpolate to minimum time sampling or 0.256 seconds, whichever is larger
     data = fetch.Msidset(msids, t1, t2, stat=None)
-    d = np.max(np.min([np.min(np.diff(data[m].times)) for m in msids]), 0.25620782)
+    d = np.max([np.min([np.min(np.diff(data[m].times)) for m in msids]), 0.25620782])
     data.interpolate(dt=d)
     for mlimsw_msid in mlimsw:
         data[mlimsw_msid].vals = np.array([s.strip() for s in data[mlimsw_msid].vals])
@@ -883,7 +883,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
 
     # Query data, interpolate to minimum time sampling or 0.256 seconds, whichever is larger
     data = fetch.Msidset(msids, t1, t2, stat=None)
-    d = np.max(np.min([np.min(np.diff(data[m].times)) for m in msids]), 0.25620782)
+    d = np.max([np.min([np.min(np.diff(data[m].times)) for m in msids]), 0.25620782])
     data.interpolate(dt=d)
     data[msid].vals = np.array([s.strip().lower() for s in data[msid].vals])
     for mlimsw_msid in mlimsw:
