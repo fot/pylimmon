@@ -21,6 +21,9 @@ if getenv('GLIMMONDATA') and getenv('TBDDATA'):
 elif getenv('SKA_DATA'):
     DBDIR = pathjoin(getenv('SKA_DATA'), 'glimmon_archive/')
     TDBDIR = pathjoin(getenv('SKA_DATA'), 'fot_tdb_archive/')
+elif getenv('SKA'):
+    DBDIR = pathjoin(getenv('SKA'), 'glimmon_archive/')
+    TDBDIR = pathjoin(getenv('SKA'), 'fot_tdb_archive/')
 else:
     DBDIR = getcwd()
     TDBDIR = getcwd()
