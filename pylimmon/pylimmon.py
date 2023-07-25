@@ -7,7 +7,7 @@ from os.path import join as pathjoin
 from os import getenv, getcwd
 
 from Chandra.Time import DateTime
-from Ska.engarchive import fetch_eng as fetch
+from cheta import fetch_eng
 
 import sys
 from os.path import expanduser
@@ -592,7 +592,7 @@ def check_limit_msid(msid, t1, t2, greta_msid=None):
         msids.extend(mlimsw)
 
     # Query data, interpolate to minimum time sampling or 0.256 seconds, whichever is larger
-    data = fetch.Msidset(msids, t1, t2, stat=None)
+    data = fetch_eng.Msidset(msids, t1, t2, stat=None)
     d = np.max([np.min([np.min(np.diff(data[m].times)) for m in msids]), 0.25620782])
     data.interpolate(dt=d)
     for mlimsw_msid in mlimsw:
@@ -885,7 +885,7 @@ def check_state_msid(msid, t1, t2, greta_msid=None):
         msids.extend(mlimsw)
 
     # Query data, interpolate to minimum time sampling or 0.256 seconds, whichever is larger
-    data = fetch.Msidset(msids, t1, t2, stat=None)
+    data = fetch_eng.Msidset(msids, t1, t2, stat=None)
     d = np.max([np.min([np.min(np.diff(data[m].times)) for m in msids]), 0.25620782])
     data.interpolate(dt=d)
     data[msid].vals = np.array([s.strip().lower() for s in data[msid].vals])
